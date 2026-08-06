@@ -1,6 +1,6 @@
 name: Release
 
-# Publishes to Maven Central on a version tag (v0.1.0); the pom version must match the tag.
+# Publishes to Maven Central on a version tag (vX.Y.Z); the pom version must match the tag.
 # Required org secrets: CENTRAL_USERNAME / CENTRAL_PASSWORD (central.sonatype.com portal token),
 # GPG_PRIVATE_KEY / GPG_PASSPHRASE (artifact signing key).
 on:

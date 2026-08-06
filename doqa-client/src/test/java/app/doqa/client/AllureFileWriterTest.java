@@ -72,6 +72,7 @@ class AllureFileWriterTest {
         AutotestResult result = new AutotestResult("DOQA-7", Outcome.FAILED)
                 .name("login test").startedOn(900L).completedOn(1100L).durationMs(200L)
                 .message("boom").traces("stack...")
+                .createManualCase(true)
                 .stepResults(List.of(outer))
                 .setupResults(List.of(setup))
                 .teardownResults(List.of(teardown))
@@ -95,6 +96,7 @@ class AllureFileWriterTest {
         assertEquals("io.acme", labels.get("package"));
         assertEquals("LoginTest", labels.get("testClass"));
         assertEquals("Login with valid credentials", labels.get("doqa_title"));
+        assertEquals("true", labels.get("doqa_create_manual_case"));
 
         // steps: nested Allure node shape (name/status/start/stop/steps)
         List<?> steps = (List<?>) res.get("steps");

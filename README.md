@@ -15,13 +15,13 @@
 <dependency>
   <groupId>app.doqa</groupId>
   <artifactId>doqa-junit5</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <scope>test</scope>
 </dependency>
 ```
 
 ```groovy
-testImplementation("app.doqa:doqa-junit5:0.1.0")   // Gradle
+testImplementation("app.doqa:doqa-junit5:0.1.1")   // Gradle
 ```
 
 Уже на этом шаге адаптер пишет в `results/` файлы Allure-совместимого формата - его

@@ -164,7 +164,8 @@ class ClientContractTest {
                 .stepResults(Arrays.asList(top))
                 .setupResults(Arrays.asList(new StepResult("db", Outcome.PASSED, 1L, null, null, null)))
                 .attachments(Arrays.asList(new Attachment("MF-2")))
-                .links(Arrays.asList(new Link("http://x", (String) null, null, null)));
+                .links(Arrays.asList(new Link("http://x", (String) null, null, null)))
+                .createManualCase(true);
 
         client.uploadResults("RUN-1", "CFG-1", Arrays.asList(result));
 
@@ -175,6 +176,7 @@ class ClientContractTest {
         assertEquals("E-1", r0.get("external_id"));
         assertEquals("failed", r0.get("outcome"));
         assertEquals("boom", r0.get("message"));
+        assertEquals(true, r0.get("create_manual_case"));
         // parameters is a LIST of {name,value}
         List<Object> params = asList(r0.get("parameters"));
         assertEquals("browser", asMap(params.get(0)).get("name"));

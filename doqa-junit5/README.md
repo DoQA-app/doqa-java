@@ -16,7 +16,7 @@
 <dependency>
   <groupId>app.doqa</groupId>
   <artifactId>doqa-junit5</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <scope>test</scope>
 </dependency>
 ```
@@ -88,7 +88,7 @@ JVM-properties `-Ddoqa.*`. Путь к файлу можно переопред�
 | `configurationId` | `DOQA_CONFIGURATION_ID` | конфигурация прогона (browser/OS/env)                                                                   | - |
 | `testRunId` | `DOQA_TEST_RUN_ID` | существующий ран (нужен для mode 0 и 1)                                                                 | - |
 | `testRunName` | `DOQA_TEST_RUN_NAME` | имя создаваемого рана (mode 2)                                                                          | - |
-| `adapterMode` | `DOQA_ADAPTER_MODE` | режим выбора рана (`0 - selective` / `1 - existing` / `2 - new`)                                                                                                        |selective` / `1|existing` / `2|new` - см. ниже | `2` |
+| `adapterMode` | `DOQA_ADAPTER_MODE` | режим выбора рана: `0` - selective, `1` - existing, `2` - new — см. ниже                                 | `2` |
 | `importRealtime` | `DOQA_IMPORT_REALTIME` | `true` = стрим результатов по мере прогона (пакет на каждый завершённый класс, вместе с его `@AfterAll`) | `false` (батч в конце) |
 | `certValidation` | `DOQA_CERT_VALIDATION` | `false` = доверять самоподписанным TLS (отключает и проверку hostname)                                  | `true` |
 | `proxy` | `DOQA_PROXY` | `host:port`                                                                                             | - |
@@ -159,6 +159,7 @@ class LoginTests {
     @DoqaTags({"ui"})
     @DoqaLinks({@DoqaLink(url = "https://tracker/BUG-77", type = "defect", title = "флак на CI")})
     @DoqaCaseIds({1041})                        // привязка к ручным кейсам DoQA (N штук)
+    @DoqaCreateManualCase                       // завести связанный ручной кейс для этого автотеста
     void loginHappyPath() { … }
 }
 ```
@@ -167,6 +168,14 @@ class LoginTests {
 и `@DoqaClassName` (по умолчанию - простое имя класса). Обе работают и на уровне класса.
 Аннотации живут в пакете `app.doqa.annotations`, рантайм-фасад - `app.doqa.Doqa`: они общие для
 всех JVM-адаптеров DoQA (`doqa-java-commons`), смена фреймворка не потребует править импорты.
+
+`@DoqaCreateManualCase` - точечный opt-in на автоматическое создание ручного тест-кейса,
+связанного с «сиротским» автотестом (тем, у которого нет привязки к кейсам). Маркер без
+параметров: работает и на методе, и на классе (тогда - для всех его тестов, наследуется
+подклассами) и действует независимо от того, включено ли такое создание в настройках
+пространства DoQA. То же самое доступно из тела теста - `Doqa.addCreateManualCase()`; аннотация
+и рантайм-вызов складываются, точечно выключить создание нельзя. Кейс заводится в момент приёма
+результата: ретроспективно, для уже накопленных «сиротских» автотестов, ничего не создаётся.
 
 Если `@DoqaId` нет, идентификатор ищется в таком порядке:
 `[DOQA-123]` или `@DOQA:123` в display name → Allure `@AllureId` (читается без зависимости от
@@ -216,6 +225,7 @@ Doqa.addLink("https://jira/TASK-5", LinkType.REQUIREMENT);
 Doqa.addLink(url, type, title, description);              // расширенная форма; есть и addLinks(Link...)
 Doqa.addMessage("покупатель создан через фабрику");
 Doqa.addCaseIds(1042);
+Doqa.addCreateManualCase();                               // завести связанный ручной кейс (как @DoqaCreateManualCase)
 Doqa.addExternalId("CART-DYN-1");                         // стабильный id динамического (@TestFactory) теста
 Doqa.addTitle("…"); Doqa.addDescription("…"); Doqa.addDisplayName("…");
 Doqa.addLabels("…"); Doqa.addTags("…");

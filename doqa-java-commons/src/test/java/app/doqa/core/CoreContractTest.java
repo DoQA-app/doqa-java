@@ -1,5 +1,6 @@
 package app.doqa.core;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -7,21 +8,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import app.doqa.Doqa;
 import app.doqa.annotations.DoqaCaseIds;
+import app.doqa.annotations.DoqaCreateManualCase;
 import app.doqa.annotations.DoqaId;
 import app.doqa.annotations.DoqaLabels;
 import app.doqa.annotations.DoqaLink;
 import app.doqa.annotations.DoqaTitle;
+import app.doqa.client.AllureFileWriter;
+import app.doqa.client.Json;
 import io.qameta.allure.AllureId;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Issue;
 import io.qameta.allure.Owner;
 import io.qameta.allure.Severity;
 import io.qameta.allure.SeverityLevel;
+import java.io.IOException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Contract fixtures for the framework-agnostic core: attribution cascade (explicit id /
@@ -38,6 +47,7 @@ class CoreContractTest {
         @DoqaTitle("Login works")
         @DoqaCaseIds({101, 102})
         @DoqaLink(url = "http://bug/1", type = "defect")
+        @DoqaCreateManualCase
         void explicit() {
         }
 
@@ -219,6 +229,83 @@ class CoreContractTest {
                 ref -> null, null, null);
         assertEquals("PINNED-1", built.def.externalId());
         assertEquals("PINNED-1", built.result.externalId());
+    }
+
+    @DoqaCreateManualCase
+    static class ClassOptIn {
+        void inheritedFlag() {
+        }
+    }
+
+    static class InheritedClassOptIn extends ClassOptIn {
+        @Override
+        void inheritedFlag() {
+        }
+    }
+
+    @Test
+    void createManualCaseAnnotationReachesDirectResultOnly() throws Exception {
+        RuntimeContext ctx = new RuntimeContext("uid-create-case");
+        ctx.testRef = ref("explicit", "explicit", false);
+        ResultBuilder.Built built = ResultBuilder.build(
+                ctx, "passed", null, null, attachment -> null, null, null);
+
+        assertEquals(true, built.result.toPayload().get("create_manual_case"));
+        assertNull(built.def.toPayload().get("create_manual_case"));
+    }
+
+    @Test
+    void classLevelManualCaseFlagIsInherited() throws Exception {
+        Method method = InheritedClassOptIn.class.getDeclaredMethod("inheritedFlag");
+        TestRef inherited = new TestRef(
+                InheritedClassOptIn.class.getName(), method.getName(), "", method.getName(),
+                false, InheritedClassOptIn.class, method);
+
+        Meta meta = MetaReader.read(inherited);
+
+        assertTrue(meta.createManualCase);
+    }
+
+    @Test
+    void runtimeManualCaseOptInReachesResultAndAllureLabel(@TempDir Path dir) throws Exception {
+        RuntimeContext ctx = DoqaContexts.open("uid-create-case-runtime");
+        try {
+            ctx.testRef = ref("bare", "bare()", false);   // no marker annotation on this method
+            Doqa.addCreateManualCase();
+            ResultBuilder.Built built = ResultBuilder.build(
+                    ctx, "passed", null, null, attachment -> null, null, null);
+
+            assertEquals(true, built.result.toPayload().get("create_manual_case"));
+
+            new AllureFileWriter(dir, "junit-platform")
+                    .write(built.def, built.result, built.fullName, built.allureId);
+            assertEquals("true", label(dir, AllureFileWriter.LABEL_CREATE_MANUAL_CASE));
+        } finally {
+            DoqaContexts.remove("uid-create-case-runtime");
+        }
+    }
+
+    @Test
+    void runtimeManualCaseOptInIsNoOpOutsideTest() {
+        assertNull(DoqaContexts.current(), "no context bound");
+        assertDoesNotThrow(Doqa::addCreateManualCase);
+    }
+
+    /** Value of the Allure label {@code name} in the single result file written to {@code dir}. */
+    @SuppressWarnings("unchecked")
+    private static String label(Path dir, String name) throws IOException {
+        try (Stream<Path> files = Files.list(dir)) {
+            Path file = files.filter(p -> p.getFileName().toString().endsWith("-result.json"))
+                    .findFirst().orElseThrow();
+            Map<String, Object> result = Json.parseObject(new String(Files.readAllBytes(file)));
+            for (Object entry : (List<Object>) result.get("labels")) {
+                Map<String, Object> label = (Map<String, Object>) entry;
+                if (name.equals(label.get("name"))) {
+                    return String.valueOf(label.get("value"));
+                }
+            }
+            return null;
+        }
     }
 
     @Test

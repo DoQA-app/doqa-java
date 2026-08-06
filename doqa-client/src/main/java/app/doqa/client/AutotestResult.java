@@ -22,6 +22,7 @@ public final class AutotestResult implements Model {
     private final List<StepResult> teardownResults = new ArrayList<>();
     private final List<Attachment> attachments = new ArrayList<>();
     private final List<Link> links = new ArrayList<>();
+    private boolean createManualCase;
 
     public AutotestResult(String externalId, String outcome) {
         this.externalId = externalId;
@@ -61,6 +62,7 @@ public final class AutotestResult implements Model {
     }
     public AutotestResult attachments(List<Attachment> v) { if (v != null) attachments.addAll(v); return this; }
     public AutotestResult links(List<Link> v) { if (v != null) links.addAll(v); return this; }
+    public AutotestResult createManualCase(boolean v) { this.createManualCase = v; return this; }
 
     public String externalId() { return externalId; }
     public String outcome() { return outcome; }
@@ -83,6 +85,9 @@ public final class AutotestResult implements Model {
         m.put("teardown_results", Payloads.payloads(teardownResults));
         m.put("attachments", Payloads.payloads(attachments));
         m.put("links", Payloads.payloads(links));
+        if (createManualCase) {
+            m.put("create_manual_case", true);
+        }
         return Payloads.compact(m);
     }
 }

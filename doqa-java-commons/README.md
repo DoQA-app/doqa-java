@@ -29,7 +29,7 @@
 <dependency>
     <groupId>app.doqa</groupId>
     <artifactId>doqa-java-commons</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
 </dependency>
 ```
 
@@ -40,14 +40,15 @@
 - **`app.doqa.Doqa`** - рантайм-фасад для тела теста: `step(...)` (вложенные, с таймингом,
   со значением, чекпоинт без тела, вариант с description), `addAttachments`/`addAttachment`
   (файлы или контент из памяти - байты/текст), `addParameter`, `addLink(s)`, `addMessage`,
-  `addLabels`/`addLabel`/`addTags`, `addCaseIds`, `addTitle`/`addDescription`/`addDisplayName`,
+  `addLabels`/`addLabel`/`addTags`, `addCaseIds`, `addCreateManualCase` (просит DoQA завести
+  связанный ручной кейс), `addTitle`/`addDescription`/`addDisplayName`,
   `addExternalId` (стабильные id динамических тестов) и `captureContext()`/`runWith(...)` для
   переноса контекста теста в порождённые тестом потоки. Вне активного теста каждый вызов -
   безопасный no-op.
-- **`app.doqa.annotations`** - аннотации разметки: `@DoqaId`, `@DoqaCaseIds`, `@DoqaTitle`,
-  `@DoqaDescription`, `@DoqaDisplayName`, `@DoqaLabels`, `@DoqaTags`, `@DoqaLink(s)`,
-  `@DoqaNamespace`, `@DoqaClassName` и `@Step` для декларативных шагов
-  (`{param}`-плейсхолдеры в заголовке раскрываются из аргументов метода).
+- **`app.doqa.annotations`** - аннотации разметки: `@DoqaId`, `@DoqaCaseIds`,
+  `@DoqaCreateManualCase`, `@DoqaTitle`, `@DoqaDescription`, `@DoqaDisplayName`, `@DoqaLabels`,
+  `@DoqaTags`, `@DoqaLink(s)`, `@DoqaNamespace`, `@DoqaClassName` и `@Step` для декларативных
+  шагов (`{param}`-плейсхолдеры в заголовке раскрываются из аргументов метода).
 - **`app.doqa.Labels`** - конвенция меток `key:value` и её стандартные ключи
   (`severity`, `owner`, `epic`, `feature`, `story`, `component`).
 - **`app.doqa.aspects.DoqaStepAspect`** + бандлированный `META-INF/aop.xml` - AspectJ-аспект,

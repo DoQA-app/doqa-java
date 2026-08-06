@@ -189,6 +189,18 @@ public final class Doqa {
         }
     }
 
+    /**
+     * Ask DoQA to create a linked manual test case for the CURRENT autotest - the runtime twin of
+     * {@code @DoqaCreateManualCase}. Additive with the annotation: either source turns the flag
+     * on, neither can turn it back off.
+     */
+    public static void addCreateManualCase() {
+        RuntimeContext ctx = DoqaContexts.current();
+        if (ctx != null) {
+            ctx.createManualCase = true;
+        }
+    }
+
     public static void addTitle(String title) {
         RuntimeContext ctx = DoqaContexts.current();
         if (ctx != null) {

@@ -1,6 +1,7 @@
 package app.doqa.core;
 
 import app.doqa.annotations.DoqaClassName;
+import app.doqa.annotations.DoqaCreateManualCase;
 import app.doqa.annotations.DoqaDescription;
 import app.doqa.annotations.DoqaDisplayName;
 import app.doqa.annotations.DoqaLabels;
@@ -66,6 +67,9 @@ public final class MetaReader {
         DoqaClassName cn = el.getAnnotation(DoqaClassName.class);
         if (cn != null) {
             meta.classname = cn.value();
+        }
+        if (el.isAnnotationPresent(DoqaCreateManualCase.class)) {
+            meta.createManualCase = true;
         }
         DoqaLabels labels = el.getAnnotation(DoqaLabels.class);
         if (labels != null) {

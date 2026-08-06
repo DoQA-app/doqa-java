@@ -28,6 +28,8 @@ public final class RuntimeContext {
     public String title;
     public String displayName;
     public String description;
+    /** Runtime opt-in; ORed with the {@code @DoqaCreateManualCase} marker when the result is built. */
+    public boolean createManualCase;
     public final List<String> labels = new ArrayList<>();
     public final List<String> tags = new ArrayList<>();
     public final List<Link> links = new ArrayList<>();

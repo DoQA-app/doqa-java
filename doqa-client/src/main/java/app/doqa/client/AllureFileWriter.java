@@ -23,8 +23,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * <ul>
  *   <li>{@code <uuid>-result.json} - status/statusDetails/start/stop, native {@code description},
  *       DoQA labels ({@code doqa_id}, {@code doqa_cases}, {@code AS_ID},
- *       {@code doqa_title}), {@code package}/{@code testClass}/{@code suite} (namespace/classname
- *       override), parameters (list), attachments ({@code {name, source, type}}),
+ *       {@code doqa_title}, {@code doqa_create_manual_case}),
+ *       {@code package}/{@code testClass}/{@code suite} (namespace/classname override),
+ *       parameters (list), attachments ({@code {name, source, type}}),
  *       nested {@code steps} (test body);</li>
  *   <li>{@code <uuid>-container.json} - {@code befores}/{@code afters} fixture nodes referencing
  *       the result via {@code children} (setup/teardown results);</li>
@@ -41,6 +42,7 @@ public final class AllureFileWriter {
     public static final String LABEL_ID = "doqa_id";
     public static final String LABEL_CASES = "doqa_cases";
     public static final String LABEL_ALLURE_ID = "AS_ID";
+    public static final String LABEL_CREATE_MANUAL_CASE = "doqa_create_manual_case";
     /** Human-readable title. Allure results have no dedicated title slot separate from
      *  name/fullName, so it travels as a label like the other {@code doqa_*} extensions. */
     public static final String LABEL_TITLE = "doqa_title";
@@ -147,7 +149,7 @@ public final class AllureFileWriter {
         }
         allure.put("start", resMap.get("started_on"));
         allure.put("stop", resMap.get("completed_on"));
-        allure.put("labels", labels(defMap, allureId));
+        allure.put("labels", labels(defMap, resMap, allureId));
         allure.put("parameters", orEmpty(resMap.get("parameters")));
         allure.put("attachments", attachments(resMap.get("attachments")));
         allure.put("steps", steps(resMap.get("step_results")));
@@ -190,7 +192,9 @@ public final class AllureFileWriter {
     }
 
     // ------------------------------------------------------------------ transforms
-    private List<Map<String, Object>> labels(Map<String, Object> defMap, String allureId) {
+    private List<Map<String, Object>> labels(Map<String, Object> defMap,
+                                             Map<String, Object> resMap,
+                                             String allureId) {
         List<Map<String, Object>> labels = new ArrayList<>();
         addLabel(labels, LABEL_TITLE, defMap.get("title"));
         addLabel(labels, LABEL_ID, defMap.get("external_id"));
@@ -206,6 +210,7 @@ public final class AllureFileWriter {
             addLabel(labels, LABEL_CASES, csv.toString());
         }
         addLabel(labels, LABEL_ALLURE_ID, allureId);
+        addLabel(labels, LABEL_CREATE_MANUAL_CASE, resMap.get("create_manual_case"));
         addLabel(labels, "framework", frameworkLabel);
         addLabel(labels, "language", "java");
         addLabel(labels, "package", defMap.get("namespace"));
