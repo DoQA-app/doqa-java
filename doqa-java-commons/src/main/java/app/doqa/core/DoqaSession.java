@@ -41,6 +41,11 @@ public final class DoqaSession {
 
     private static final Logger LOG = Logger.getLogger(DoqaSession.class.getName());
 
+    private static final String CONFIG_HINT =
+            "Configure them via -Ddoqa.url / -Ddoqa.token / -Ddoqa.spaceId, "
+                    + "the DOQA_URL / DOQA_TOKEN / DOQA_SPACE_ID environment variables, "
+                    + "or a doqa.properties file.";
+
     // Test seams (injectable before first use).
     private static volatile Function<DoqaConfig, ApiClient> clientFactory;
     private static volatile DoqaConfig configOverride;
@@ -150,6 +155,7 @@ public final class DoqaSession {
             return new DoqaSession(false, config, null, null, null);
         }
         if (DoqaConfig.REPORTING_FILES.equals(sink)) {
+            warnIfUnconfigured(config);
             try {
                 AllureFileWriter writer = new AllureFileWriter(
                         Paths.get(config.resultsDir()), AdapterRuntime.frameworkLabel());
@@ -162,7 +168,9 @@ public final class DoqaSession {
         }
         // api sink (explicit or via auto)
         if (!config.enabled()) {
-            LOG.log(Level.WARNING, "DoQA: reporting=api but url/token/space incomplete, disabled.");
+            LOG.log(Level.WARNING, "DoQA: reporting=api, but the configuration is incomplete (missing "
+                    + String.join(", ", config.missingApiSettings()) + ") - reporting is disabled. "
+                    + CONFIG_HINT);
             return new DoqaSession(false, config, null, null, null);
         }
         try {
@@ -174,6 +182,37 @@ public final class DoqaSession {
             LOG.log(Level.WARNING, "DoQA: could not establish run, disabling: " + e.getMessage(), e);
             return new DoqaSession(false, config, null, null, null);
         }
+    }
+
+    /**
+     * With the default {@code reporting=auto}, missing url/token/spaceId degrades to the file sink:
+     * results never reach DoQA, so the fallback is reported instead of happening silently. An
+     * explicit {@code reporting=files} is a deliberate choice and stays quiet.
+     */
+    private static void warnIfUnconfigured(DoqaConfig config) {
+        if (!DoqaConfig.REPORTING_AUTO.equals(rawReporting(config))) {
+            LOG.log(Level.FINE, "DoQA: reporting=files, results are written to " + config.resultsDir());
+            return;
+        }
+        LOG.log(Level.WARNING, "DoQA: no reporting configuration found (missing "
+                + String.join(", ", config.missingApiSettings())
+                + ") - results are written as Allure files to '" + config.resultsDir()
+                + "' and are NOT sent to DoQA. " + CONFIG_HINT
+                + " Set doqa.reporting=files to make the file output explicit and silence this warning.");
+    }
+
+    /** Raw {@code reporting} value, normalized; unknown values behave as {@code auto}. */
+    private static String rawReporting(DoqaConfig config) {
+        String raw = config.reporting();
+        if (raw == null) {
+            return DoqaConfig.REPORTING_AUTO;
+        }
+        raw = raw.trim().toLowerCase();
+        return DoqaConfig.REPORTING_API.equals(raw)
+                || DoqaConfig.REPORTING_FILES.equals(raw)
+                || DoqaConfig.REPORTING_OFF.equals(raw)
+                ? raw
+                : DoqaConfig.REPORTING_AUTO;
     }
 
     /**

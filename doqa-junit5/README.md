@@ -51,8 +51,8 @@ spaceId=42
 
 | `reporting=` | Что происходит |
 |---|---|
-| `auto` *(по умолчанию)* | есть `url`+`token`+`spaceId` → API; нет → файлы |
-| `api` | только API (без конфига - предупреждение в лог) |
+| `auto` *(по умолчанию)* | есть `url`+`token`+`spaceId` → API; нет → файлы **и WARNING в логе** с перечислением недостающих настроек |
+| `api` | только API (без конфига - предупреждение в лог с перечислением недостающих настроек) |
 | `files` | только файлы Allure-совместимого формата в `resultsDir` (по умолчанию `results/`) |
 | `off` | адаптер выключен полностью |
 
@@ -334,7 +334,7 @@ test {
 | Симптом | Причина и лечение |
 |---|---|
 | Результатов нигде нет | `reporting=api` без `url`/`token`/`spaceId` - смотрите WARNING в логе; либо `reporting=off` |
-| Результаты в `results/`, а ждали в DoQA | это `auto` без API-конфига - задайте `url`/`token`/`spaceId` |
+| Результаты в `results/`, а ждали в DoQA | это `auto` без API-конфига - в логе есть WARNING «no reporting configuration found (missing …)»; задайте `url`/`token`/`spaceId`. Если файловый режим выбран сознательно, поставьте `reporting=files` - предупреждение исчезнет |
 | `NoSuchMethodError: DoqaStepAspect.aspectOf()` | вы сузили вивинг своим `aop.xml` и исключили аспект - верните `<include within="app.doqa.aspects.DoqaStepAspect"/>` |
 | `@Step`-шаги не появляются | не подключён `-javaagent:aspectjweaver` (см. выше) |
 | На JDK 16+ падает вивер / нет шагов | добавьте `--add-opens java.base/java.lang=ALL-UNNAMED` к argLine |

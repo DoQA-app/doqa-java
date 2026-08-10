@@ -1,5 +1,8 @@
 package app.doqa.client;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Resolved DoQA client-core configuration. See {@link ConfigResolver} for the full catalog of
  * keys, aliases and environment variables - that javadoc is the single source of truth for
@@ -152,6 +155,24 @@ public final class DoqaConfig {
     /** True when we have the minimum to talk to the API (url + token + space). */
     public boolean enabled() {
         return notBlank(url) && notBlank(token) && notBlank(spaceId);
+    }
+
+    /**
+     * Canonical names of the missing API settings, in configuration order - empty when
+     * {@link #enabled()}. Adapters name them when reporting an unconfigured run.
+     */
+    public List<String> missingApiSettings() {
+        List<String> missing = new ArrayList<>(3);
+        if (!notBlank(url)) {
+            missing.add("url");
+        }
+        if (!notBlank(token)) {
+            missing.add("token");
+        }
+        if (!notBlank(spaceId)) {
+            missing.add("spaceId");
+        }
+        return missing;
     }
 
     private static boolean notBlank(String s) {
