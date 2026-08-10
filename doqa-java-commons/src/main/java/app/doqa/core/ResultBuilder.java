@@ -123,6 +123,9 @@ public final class ResultBuilder {
                 .description(description)
                 .namespace(namespace)
                 .classname(classname)
+                // runner identity: DoQA builds its native selection filter from the method name,
+                // which a custom display name hides.
+                .runnerMethod(ref.methodName)
                 .labels(labels)
                 .tags(tags)
                 .links(links)

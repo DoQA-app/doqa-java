@@ -219,6 +219,48 @@ class ClientContractTest {
     }
 
     @Test
+    void unexpandedVariableReferenceIsTreatedAsUnset() {
+        // An unset CI variable re-declared as `DOQA_TOKEN: $DOQA_TOKEN` reaches the process
+        // verbatim; accepting it would make enabled() lie.
+        Map<String, String> env = new LinkedHashMap<>();
+        env.put("DOQA_URL", "https://doqa.example");
+        env.put("DOQA_TOKEN", "$DOQA_TOKEN");
+        env.put("DOQA_SPACE_ID", "${DOQA_SPACE_ID}");
+
+        DoqaConfig c = ConfigResolver.resolve(new Properties(), env, null);
+        assertEquals("https://doqa.example", c.url());
+        assertNull(c.token());
+        assertNull(c.spaceId());
+        assertFalse(c.enabled());
+    }
+
+    @Test
+    void valueMerelyContainingDollarSurvives() {
+        // Only a value that is NOTHING BUT a reference is a placeholder - real secrets may hold `$`.
+        Map<String, String> env = new LinkedHashMap<>();
+        env.put("DOQA_TOKEN", "pa$$w0rd$X");
+        assertEquals("pa$$w0rd$X", ConfigResolver.resolve(new Properties(), env, null).token());
+    }
+
+    @Test
+    void selectiveListIsScopedToOwnPipeline() {
+        FakeTransport t = new FakeTransport();
+        DoqaConfig config = new DoqaConfig.Builder()
+                .url("https://doqa.example/").token("TOK").spaceId("SP")
+                .adapterMode(0).testRunId("RUN-1").ciRunId("77").build();
+        new ApiClient(config, t, 3, 0).getRunAutotests("RUN-1", null);
+        assertTrue(t.lastUrl.contains("ciRunId=77"), t.lastUrl);
+    }
+
+    @Test
+    void runnerMethodTravelsWithTheDefinition() {
+        // DoQA derives its native filter expression from the method name.
+        Map<String, Object> p = new AutotestDef("E-1", "Проверка возврата платежа")
+                .classname("PaymentTest").runnerMethod("refundsOverpayment").toPayload();
+        assertEquals("refundsOverpayment", p.get("runner_method"));
+    }
+
+    @Test
     void compactDropsEmptyKeepsFalsyScalars() {
         // A def with no optional fields -> only external_id + name survive.
         Map<String, Object> p = new AutotestDef("E-2", "bare").toPayload();

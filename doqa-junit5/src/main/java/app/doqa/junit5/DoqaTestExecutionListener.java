@@ -64,6 +64,27 @@ public class DoqaTestExecutionListener implements TestExecutionListener {
         } catch (RuntimeException e) {
             LOG.log(Level.WARNING, "DoQA junit5: init failed, disabling", e);
         }
+        warnOnEmptySelection(testPlan);
+    }
+
+    /**
+     * A selective run that matched nothing executes zero tests and still looks green, so say it
+     * out loud: the run's external ids and the ones resolved here have drifted apart - typically
+     * a renamed display name or a moved class.
+     */
+    private void warnOnEmptySelection(TestPlan plan) {
+        DoqaSession local = session;
+        if (local == null || !local.enabled || local.runContext == null
+                || local.runContext.selectedExternalIds() == null
+                || local.runContext.selectedExternalIds().isEmpty()) {
+            return;
+        }
+        if (plan != null && plan.countTestIdentifiers(TestIdentifier::isTest) == 0) {
+            LOG.warning("DoQA: the run selects " + local.runContext.selectedExternalIds().size()
+                    + " autotest(s), but none of them matched the discovered tests - nothing will"
+                    + " run. The selected external ids are " + local.runContext.selectedExternalIds()
+                    + "; re-report this suite to DoQA so the catalog picks up the current ids.");
+        }
     }
 
     @Override

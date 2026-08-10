@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 /**
  * Config-resolver - merge file / env / system-props with priority
@@ -45,6 +46,14 @@ import java.util.logging.Logger;
 public final class ConfigResolver {
 
     private static final Logger LOG = Logger.getLogger(ConfigResolver.class.getName());
+
+    /**
+     * A value that is nothing but a variable reference ({@code $DOQA_TOKEN},
+     * {@code ${DOQA_TOKEN}}) is an unexpanded CI placeholder rather than a setting - the literal
+     * text reaches the process whenever the referenced variable does not exist.
+     */
+    private static final Pattern UNEXPANDED_REF =
+            Pattern.compile("\\$\\{?[A-Za-z_][A-Za-z0-9_]*}?");
 
     private ConfigResolver() {
     }
@@ -229,6 +238,12 @@ public final class ConfigResolver {
                 continue;
             }
             String trimmed = value.trim();
+            if (UNEXPANDED_REF.matcher(trimmed).matches()) {
+                LOG.warning("DoQA: " + field + " is set to the unexpanded variable reference \""
+                        + trimmed + "\" - treating it as unset. Check that the CI variable exists "
+                        + "and is exported to this job.");
+                continue;
+            }
             if (!trimmed.isEmpty() || keepEmpty) {
                 out.put(field, trimmed);
             }

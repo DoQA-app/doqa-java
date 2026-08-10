@@ -113,7 +113,11 @@ public final class ApiClient {
         return runId == null ? null : String.valueOf(runId);
     }
 
-    /** GET /test-runs/{id}/autotests - selective external ids (mode 0). */
+    /**
+     * GET /test-runs/{id}/autotests - selective external ids (mode 0). {@code ciRunId} narrows the
+     * plan to the tests assigned to this pipeline; a run split across several pipelines needs it,
+     * and servers that do not know the parameter ignore it.
+     */
     @SuppressWarnings("unchecked")
     public List<String> getRunAutotests(String runId, String configurationId) {
         StringBuilder u = new StringBuilder(url("test-runs/" + runId + "/autotests"));
@@ -121,6 +125,9 @@ public final class ApiClient {
         String conf = configurationId != null ? configurationId : config.configurationId();
         if (conf != null) {
             u.append("&configuration_id=").append(enc(conf));
+        }
+        if (config.ciRunId() != null) {
+            u.append("&ciRunId=").append(enc(config.ciRunId()));
         }
         Transport.Response r = request(Transport.Request.get(u.toString()));
         List<String> out = new ArrayList<>();
