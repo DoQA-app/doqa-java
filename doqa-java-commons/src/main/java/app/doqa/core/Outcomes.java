@@ -1,5 +1,8 @@
 package app.doqa.core;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+
 /**
  * Outcome taxonomy helpers shared by the facade and framework adapters: assertion failures map
  * to {@code failed} (a product defect signal), everything else to {@code broken}
@@ -37,5 +40,15 @@ public final class Outcomes {
             return null;
         }
         return t.getMessage() != null ? t.getMessage() : t.getClass().getName();
+    }
+
+    /** The printed stack trace of {@code t} - the {@code traces} field of a result. */
+    public static String stackTrace(Throwable t) {
+        if (t == null) {
+            return null;
+        }
+        StringWriter sw = new StringWriter();
+        t.printStackTrace(new PrintWriter(sw));
+        return sw.toString();
     }
 }

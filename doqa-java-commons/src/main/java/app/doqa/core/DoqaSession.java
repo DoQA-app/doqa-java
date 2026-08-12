@@ -160,6 +160,9 @@ public final class DoqaSession {
                 AllureFileWriter writer = new AllureFileWriter(
                         Paths.get(config.resultsDir()), AdapterRuntime.frameworkLabel());
                 writer.writeEnvironment(config.environment());
+                // the shared containers carrying class teardown are written by flush(); some hosts
+                // (Gradle, a bare runner) never deliver a run-finished event to the adapter
+                installShutdownHook();
                 return new DoqaSession(true, config, null, null, writer);
             } catch (RuntimeException e) {
                 LOG.log(Level.WARNING, "DoQA: cannot open results dir, disabling: " + e.getMessage(), e);
@@ -425,12 +428,21 @@ public final class DoqaSession {
         }
     }
 
-    private static String topLevelKey(String classKey) {
+    /**
+     * The top-level class of {@code classKey} - everything before the first {@code $}. The buffers
+     * here are keyed by it, so an adapter deciding when a class is complete must cut nested classes
+     * off exactly the same way (their {@code @AfterAll} runs with the enclosing class).
+     */
+    public static String topLevelClass(String classKey) {
         if (classKey == null) {
-            return "";
+            return null;
         }
         int nested = classKey.indexOf('$');
         return nested < 0 ? classKey : classKey.substring(0, nested);
+    }
+
+    private static String topLevelKey(String classKey) {
+        return classKey == null ? "" : topLevelClass(classKey);
     }
 
     // ---- test seams -----------------------------------------------------

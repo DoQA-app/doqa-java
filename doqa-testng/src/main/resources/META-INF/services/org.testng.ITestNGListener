@@ -1,0 +1,2 @@
+app.doqa.testng.DoqaTestNgListener
+app.doqa.testng.DoqaMethodInterceptor

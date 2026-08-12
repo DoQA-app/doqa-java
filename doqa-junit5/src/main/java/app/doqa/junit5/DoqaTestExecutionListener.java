@@ -8,8 +8,6 @@ import app.doqa.core.DoqaSession;
 import app.doqa.core.Outcomes;
 import app.doqa.core.ResultBuilder;
 import app.doqa.core.RuntimeContext;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -221,14 +219,14 @@ public class DoqaTestExecutionListener implements TestExecutionListener {
                 outcome = Outcome.SKIPPED.wire();
                 Throwable ab = result.getThrowable().orElse(null);
                 message = Outcomes.messageOf(ab);
-                traces = stackTrace(ab);
+                traces = Outcomes.stackTrace(ab);
                 break;
             case FAILED:
             default:
                 Throwable t = result.getThrowable().orElse(null);
                 outcome = Outcomes.isAssertion(t) ? Outcome.FAILED.wire() : Outcome.BROKEN.wire();
                 message = Outcomes.messageOf(t);
-                traces = stackTrace(t);
+                traces = Outcomes.stackTrace(t);
                 break;
         }
         emit(ctx, outcome, message, traces);
@@ -261,15 +259,6 @@ public class DoqaTestExecutionListener implements TestExecutionListener {
             return null;
         }
         String fqcn = ((ClassSource) source.get()).getClassName();
-        return fqcn.indexOf('$') < 0 ? fqcn : null;
-    }
-
-    private static String stackTrace(Throwable t) {
-        if (t == null) {
-            return null;
-        }
-        StringWriter sw = new StringWriter();
-        t.printStackTrace(new PrintWriter(sw));
-        return sw.toString();
+        return fqcn.equals(DoqaSession.topLevelClass(fqcn)) ? fqcn : null;
     }
 }

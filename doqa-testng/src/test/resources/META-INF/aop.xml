@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE aspectj PUBLIC "-//AspectJ//DTD//EN" "https://www.eclipse.org/aspectj/dtd/aspectj.dtd">
+<!--
+  Test-only weaving narrowing: merged with the main META-INF/aop.xml at LTW, restricts weaving to
+  the E2E demo package so the surefire JVM does not weave the world. Also documents the host-side
+  narrowing pattern from the main aop.xml comment.
+-->
+<aspectj>
+    <weaver>
+        <include within="app.doqa.e2eng..*"/>
+        <!-- The annotation-style aspect must stay in the weaver scope (aspectOf() is added by the
+             weaver at load time) - every host narrowing with <include> needs this line too. -->
+        <include within="app.doqa.aspects.DoqaStepAspect"/>
+    </weaver>
+</aspectj>

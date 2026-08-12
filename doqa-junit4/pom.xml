@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>app.doqa</groupId>
+        <artifactId>doqa-java</artifactId>
+        <version>0.1.4</version>
+    </parent>
+
+    <artifactId>doqa-junit4</artifactId>
+    <packaging>jar</packaging>
+
+    <name>DoQA JUnit 4 adapter</name>
+    <description>
+        JUnit 4 adapter for DoQA: a RunListener that reports test results with steps, fixtures,
+        parameters, attachments and links either directly to the DoQA API or as Allure-compatible
+        result files, driven by annotations (@DoqaId, @DoqaTitle, ...), the Doqa runtime API
+        and AspectJ @Step weaving.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>app.doqa</groupId>
+            <artifactId>doqa-java-commons</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- provided: the host test project already has JUnit 4 on the classpath. -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${junit4.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+            <version>${aspectj.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <parameters>true</parameters>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>properties</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-javaagent:${org.aspectj:aspectjweaver:jar} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
+                    <systemPropertyVariables>
+                        <doqa.reporting>off</doqa.reporting>
+                        <doqa.resultsDir>${project.build.directory}/results</doqa.resultsDir>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

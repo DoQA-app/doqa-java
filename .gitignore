@@ -1,6 +1,7 @@
 target/
 results/
 allure-results/
+test-output/
 *.class
 .idea/
 *.iml

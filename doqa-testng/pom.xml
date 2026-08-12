@@ -10,43 +10,30 @@
         <version>0.1.4</version>
     </parent>
 
-    <artifactId>doqa-junit5</artifactId>
+    <artifactId>doqa-testng</artifactId>
     <packaging>jar</packaging>
 
-    <name>DoQA JUnit 5 adapter</name>
+    <name>DoQA TestNG adapter</name>
     <description>
-        JUnit 5 adapter for DoQA: reports test results with steps, fixtures, parameters,
-        attachments and links either directly to the DoQA API or as Allure-compatible result
-        files, driven by annotations (@DoqaId, @DoqaTitle, ...), the Doqa runtime API
-        and AspectJ @Step weaving.
+        TestNG adapter for DoQA: auto-registered listeners that report test results with steps,
+        fixtures, parameters, attachments and links either directly to the DoQA API or as
+        Allure-compatible result files, driven by annotations (@DoqaId, @DoqaTitle, ...), the Doqa
+        runtime API and AspectJ @Step weaving.
     </description>
 
     <dependencies>
-        <!-- framework-agnostic core: Doqa facade, annotations, @Step aspect, attribution,
-             result projection and the reporting session (brings doqa-client transitively). -->
         <dependency>
             <groupId>app.doqa</groupId>
             <artifactId>doqa-java-commons</artifactId>
             <version>${project.version}</version>
         </dependency>
 
-        <!-- provided: the host test project already has the JUnit Platform on the classpath. -->
+        <!-- provided: the host test project already has TestNG on the classpath. Compiled against
+             the current release; the adapter avoids newer API so it also runs on TestNG 7.4. -->
         <dependency>
-            <groupId>org.junit.platform</groupId>
-            <artifactId>junit-platform-launcher</artifactId>
-            <version>${junit.platform.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.platform</groupId>
-            <artifactId>junit-platform-engine</artifactId>
-            <version>${junit.platform.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-api</artifactId>
-            <version>${junit.jupiter.version}</version>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>${testng.version}</version>
             <scope>provided</scope>
         </dependency>
 
@@ -58,13 +45,6 @@
             <version>${aspectj.version}</version>
             <scope>provided</scope>
         </dependency>
-
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>${junit.jupiter.version}</version>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
@@ -73,12 +53,11 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <!-- real argument names for @ParameterizedTest parameters / {param}
-                         placeholders (hosts should enable the same, else names are arg0..argN). -->
+                    <!-- real argument names for invocation parameters and {param} placeholders
+                         (hosts should enable the same, else names are arg0..argN). -->
                     <parameters>true</parameters>
                 </configuration>
             </plugin>
-            <!-- Exposes ${org.aspectj:aspectjweaver:jar} for the surefire javaagent below. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
@@ -91,20 +70,13 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- LTW agent so the E2E launcher test exercises the @Step aspect exactly like a host
-                 build (see README: hosts add the same -javaagent to their surefire/gradle test JVM). -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <!-- add-opens: on JDK 16+ the weaver must define generated around-advice
-                         closure classes (\$AjcClosure) reflectively; hosts need the same flag. -->
                     <argLine>-javaagent:${org.aspectj:aspectjweaver:jar} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
                     <systemPropertyVariables>
-                        <!-- The outer test run never reports anywhere, whatever DOQA_* the
-                             machine exports; nested launches opt in per test. -->
                         <doqa.reporting>off</doqa.reporting>
-                        <!-- Any stray file-sink output lands under target/, not the repo root. -->
                         <doqa.resultsDir>${project.build.directory}/results</doqa.resultsDir>
                     </systemPropertyVariables>
                 </configuration>

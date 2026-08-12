@@ -6,13 +6,13 @@
 
     <groupId>app.doqa</groupId>
     <artifactId>doqa-java</artifactId>
-    <version>0.1.3</version>
+    <version>0.1.4</version>
     <packaging>pom</packaging>
 
     <name>DoQA Java</name>
     <description>
         DoQA reporting for JVM test frameworks: the Autotest API client core, the shared
-        framework-agnostic adapter core and the framework adapters (JUnit 5 today).
+        framework-agnostic adapter core and the framework adapters (JUnit 5, JUnit 4, TestNG).
         All modules release together under one version.
     </description>
 
@@ -50,6 +50,8 @@
         <module>doqa-client</module>
         <module>doqa-java-commons</module>
         <module>doqa-junit5</module>
+        <module>doqa-junit4</module>
+        <module>doqa-testng</module>
     </modules>
 
     <properties>
@@ -58,6 +60,8 @@
         <maven.compiler.release>11</maven.compiler.release>
         <junit.platform.version>1.11.4</junit.platform.version>
         <junit.jupiter.version>5.11.4</junit.jupiter.version>
+        <junit4.version>4.13.2</junit4.version>
+        <testng.version>7.12.0</testng.version>
         <aspectj.version>1.9.24</aspectj.version>
     </properties>
 

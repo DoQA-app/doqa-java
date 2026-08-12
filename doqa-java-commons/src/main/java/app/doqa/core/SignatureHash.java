@@ -1,5 +1,6 @@
 package app.doqa.core;
 
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -34,6 +35,30 @@ public final class SignatureHash {
             if (!dn.isEmpty()) {
                 sb.append('#').append(dn);
             }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Parameter types of a resolved method as {@code "java.lang.String, int"} - the shape Jupiter's
+     * {@code MethodSource.getMethodParameterTypes()} hands out, reconstructed for the frameworks
+     * that only offer the {@link Method}. The value feeds the signature above, so the format must
+     * stay stable: changing it changes every fallback id.
+     */
+    public static String parameterTypes(Method method) {
+        if (method == null) {
+            return null;
+        }
+        Class<?>[] types = method.getParameterTypes();
+        if (types.length == 0) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < types.length; i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append(types[i].getTypeName());
         }
         return sb.toString();
     }
