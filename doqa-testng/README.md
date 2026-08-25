@@ -21,13 +21,13 @@
 <dependency>
   <groupId>app.doqa</groupId>
   <artifactId>doqa-testng</artifactId>
-  <version>0.1.4</version>
+  <version>0.1.5</version>
   <scope>test</scope>
 </dependency>
 ```
 
 ```groovy
-testImplementation("app.doqa:doqa-testng:0.1.4")   // Gradle
+testImplementation("app.doqa:doqa-testng:0.1.5")   // Gradle
 ```
 
 Все модули монорепозитория релизятся одной версией - актуальную смотрите в

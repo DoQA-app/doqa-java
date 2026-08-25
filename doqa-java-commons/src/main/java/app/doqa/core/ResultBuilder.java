@@ -11,6 +11,7 @@ import app.doqa.client.Step;
 import app.doqa.client.StepKind;
 import app.doqa.client.StepResult;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -90,10 +91,8 @@ public final class ResultBuilder {
         String title = Placeholders.resolve(firstNonBlank(ctx.title, meta.title), params);
         String description = Placeholders.resolve(
                 firstNonBlank(ctx.description, meta.description), params);
-        String namespace = Placeholders.resolve(
-                firstNonBlank(meta.namespace, ref.packageName()), params);
-        String classname = Placeholders.resolve(
-                firstNonBlank(meta.classname, ref.simpleClassName()), params);
+        String namespace = namespaceOf(ref, meta, params);
+        String classname = classnameOf(ref, meta, params);
 
         List<String> labels = Placeholders.resolveAll(dedupStrings(meta.labels, ctx.labels), params);
         List<String> tags = Placeholders.resolveAll(dedupStrings(meta.tags, ctx.tags), params);
@@ -267,6 +266,18 @@ public final class ResultBuilder {
 
     private static int maxParameter(DoqaConfig limits) {
         return limits != null ? limits.maxParameterLength() : DoqaConfig.DEFAULT_MAX_PARAMETER_LENGTH;
+    }
+
+    /** Namespace an autotest is reported under: {@code @DoqaNamespace} if declared, else the package. */
+    public static String namespaceOf(TestRef ref, Meta meta, Map<String, String> params) {
+        return Placeholders.resolve(firstNonBlank(meta.namespace, ref.packageName()),
+                params == null ? Collections.<String, String>emptyMap() : params);
+    }
+
+    /** Classname an autotest is reported under: {@code @DoqaClassname} if declared, else the class. */
+    public static String classnameOf(TestRef ref, Meta meta, Map<String, String> params) {
+        return Placeholders.resolve(firstNonBlank(meta.classname, ref.simpleClassName()),
+                params == null ? Collections.<String, String>emptyMap() : params);
     }
 
     private static String firstNonBlank(String... values) {

@@ -17,13 +17,13 @@
 <dependency>
   <groupId>app.doqa</groupId>
   <artifactId>doqa-junit5</artifactId>
-  <version>0.1.4</version>
+  <version>0.1.5</version>
   <scope>test</scope>
 </dependency>
 ```
 
 ```groovy
-testImplementation("app.doqa:doqa-junit5:0.1.4")   // Gradle
+testImplementation("app.doqa:doqa-junit5:0.1.5")   // Gradle
 ```
 
 На TestNG артефакт называется `doqa-testng` и работает так же «из одной зависимости»: листенер и

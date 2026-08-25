@@ -94,6 +94,7 @@ JVM-properties `-Ddoqa.*`. Путь к файлу можно переопред�
 | `proxy` | `DOQA_PROXY` | `host:port`                                                                                             | - |
 | `environment` | `DOQA_ENVIRONMENT` | метка окружения прогона (матрица окружений DoQA)                                                        | - |
 | `pipelineId` | `DOQA_PIPELINE_ID` | привязка рана к CI-пайплайну                                                                            | авто: `CI_PIPELINE_ID` / `GITHUB_RUN_ID` |
+| `ciRunId` | `DOQA_CI_RUN_ID` | id CI-запуска, инициированного из DoQA - приезжает в пайплайн сам и уезжает обратно с результатами | - |
 | `branch` | `DOQA_BRANCH` | ветка прогона                                                                                           | авто: `CI_COMMIT_REF_NAME` / `GITHUB_REF_NAME` |
 | `batchSize` | `DOQA_BATCH_SIZE` | максимум результатов в одном батч-запросе                                                               | `100` |
 | `requestTimeoutMs` | `DOQA_REQUEST_TIMEOUT_MS` | таймаут HTTP-запроса                                                                                    | `30000` |

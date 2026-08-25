@@ -114,12 +114,12 @@ public final class ApiClient {
     }
 
     /**
-     * GET /test-runs/{id}/autotests - selective external ids (mode 0). {@code ciRunId} narrows the
-     * plan to the tests assigned to this pipeline; a run split across several pipelines needs it,
-     * and servers that do not know the parameter ignore it.
+     * GET /test-runs/{id}/autotests - the selective plan (mode 0), in the server's order.
+     * {@code ciRunId} narrows it to the tests assigned to this pipeline; a run split across several
+     * pipelines needs it, and servers that do not know the parameter ignore it.
      */
     @SuppressWarnings("unchecked")
-    public List<String> getRunAutotests(String runId, String configurationId) {
+    public List<PlannedAutotest> getRunAutotests(String runId, String configurationId) {
         StringBuilder u = new StringBuilder(url("test-runs/" + runId + "/autotests"));
         u.append("?token=").append(enc(config.token()));
         String conf = configurationId != null ? configurationId : config.configurationId();
@@ -130,15 +130,14 @@ public final class ApiClient {
             u.append("&ciRunId=").append(enc(config.ciRunId()));
         }
         Transport.Response r = request(Transport.Request.get(u.toString()));
-        List<String> out = new ArrayList<>();
+        List<PlannedAutotest> out = new ArrayList<>();
         Object arr = Json.parseObject(r.body).get("autotests");
         if (arr instanceof List) {
             for (Object entry : (List<Object>) arr) {
                 if (entry instanceof Map) {
-                    Map<String, Object> m = (Map<String, Object>) entry;
-                    Object ext = m.containsKey("externalId") ? m.get("externalId") : m.get("external_id");
-                    if (ext != null) {
-                        out.add(String.valueOf(ext));
+                    PlannedAutotest planned = PlannedAutotest.fromPayload((Map<String, Object>) entry);
+                    if (planned != null) {
+                        out.add(planned);
                     }
                 }
             }

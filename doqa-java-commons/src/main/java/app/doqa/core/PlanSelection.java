@@ -76,6 +76,102 @@ public final class PlanSelection {
     }
 
     /**
+     * Whether a container whose tests pin their ids at execution time ({@code @TestFactory}) may
+     * hold a selected autotest, matched by the runner identity the plan carries. Unknown identity
+     * keeps the container.
+     */
+    public static boolean allowsRuntimeIdContainer(TestRef ref) {
+        try {
+            RunContext plan = plan();
+            if (plan == null || ref == null) {
+                return true;
+            }
+            Meta meta = MetaReader.read(ref);
+            return plan.mayHoldSelected(ResultBuilder.namespaceOf(ref, meta, null),
+                    ResultBuilder.classnameOf(ref, meta, null), ref.methodName);
+        } catch (Throwable t) {
+            LOG.log(Level.WARNING, "DoQA " + AdapterRuntime.framework()
+                    + ": selection failed to resolve, keeping the container", t);
+            return true;
+        }
+    }
+
+    /**
+     * Whether the run includes the test about to execute, judged by the externalId it will be
+     * reported under: the runtime override ({@code Doqa.addExternalId}), else the annotation id,
+     * with {@code {param}} placeholders substituted from the arguments captured so far. An id that
+     * still carries a placeholder is kept.
+     */
+    public static boolean allowsInvocation(RuntimeContext ctx) {
+        try {
+            RunContext plan = plan();
+            if (plan == null || ctx == null) {
+                return true;
+            }
+            String declared = ctx.externalId;
+            if (declared == null) {
+                if (ctx.testRef == null) {
+                    return true;
+                }
+                declared = Attribution.resolve(ctx.testRef).externalId;
+            }
+            String externalId = Placeholders.resolve(declared, Placeholders.paramsOf(ctx));
+            if (externalId == null || Placeholders.hasPlaceholder(externalId)) {
+                return true;
+            }
+            return plan.allows(externalId);
+        } catch (Throwable t) {
+            LOG.log(Level.WARNING, "DoQA " + AdapterRuntime.framework()
+                    + ": selection failed to resolve, keeping the test", t);
+            return true;
+        }
+    }
+
+    /**
+     * Aborts the running test when the selective run does not include it - skipped, not failed.
+     * Only a real invocation is aborted; a fixture or hand-bound context is left alone.
+     */
+    public static void abortIfDeselected(RuntimeContext ctx, String externalId) {
+        if (ctx == null || ctx.uniqueId == null || allowsInvocation(ctx)) {
+            return;
+        }
+        RuntimeException skip = skipSignal(externalId);
+        if (skip != null) {
+            throw skip;
+        }
+    }
+
+    /**
+     * How to abort one invocation of a parameterized test now that its arguments are known, or
+     * {@code null} when it stays in the run. Only placeholder templates ({@code login_{browser}})
+     * are judged here - a literal id was already decided at discovery.
+     */
+    public static RuntimeException deselectedInvocationSignal(RuntimeContext ctx) {
+        try {
+            if (ctx == null || ctx.testRef == null || plan() == null) {
+                return null;
+            }
+            String declared = ctx.externalId != null
+                    ? ctx.externalId
+                    : Attribution.resolve(ctx.testRef).externalId;
+            if (!Placeholders.hasPlaceholder(declared) || allowsInvocation(ctx)) {
+                return null;
+            }
+            return skipSignal(Placeholders.resolve(declared, Placeholders.paramsOf(ctx)));
+        } catch (Throwable t) {
+            LOG.log(Level.WARNING, "DoQA " + AdapterRuntime.framework()
+                    + ": selection failed to resolve, keeping the invocation", t);
+            return null;
+        }
+    }
+
+    /** The framework's own "skip this test" exception, or {@code null} if none is registered. */
+    private static RuntimeException skipSignal(String externalId) {
+        return AdapterRuntime.skipSignal(
+                externalId + " is not part of the DoQA run being executed");
+    }
+
+    /**
      * Position of {@code ref} in the run's plan (0-based); no plan or not in it =&gt;
      * {@link Integer#MAX_VALUE}, which a stable sort keeps at the tail. A placeholder template takes
      * the position of the first selected id matching its wildcard form, mirroring {@link #allows}.

@@ -92,6 +92,7 @@ class AllureFileWriterTest {
         Map<String, String> labels = labelMap(res.get("labels"));
         assertEquals("DOQA-7", labels.get("doqa_id"));
         assertEquals("11,12", labels.get("doqa_cases"));
+        assertEquals("11,12", labels.get("doqa_work_items"));
         assertEquals("77", labels.get("AS_ID"));
         assertEquals("io.acme", labels.get("package"));
         assertEquals("LoginTest", labels.get("testClass"));

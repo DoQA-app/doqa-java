@@ -1,6 +1,5 @@
 package app.doqa.junit5;
 
-import app.doqa.client.RunContext;
 import app.doqa.core.AdapterRuntime;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
@@ -39,14 +38,13 @@ public class DoqaPlanMethodOrderer implements MethodOrderer {
     @Override
     public void orderMethods(MethodOrdererContext context) {
         try {
-            RunContext plan = PlanOrdering.activePlan();
-            if (plan == null) {
+            if (!PlanOrdering.planActive()) {
                 return; // no DoQA session / no ordered plan -> no-op
             }
             Map<MethodDescriptor, Integer> positions = new IdentityHashMap<>();
             for (MethodDescriptor descriptor : context.getMethodDescriptors()) {
                 positions.put(descriptor,
-                        PlanOrdering.methodIndex(plan, descriptor.getMethod(), descriptor.getDisplayName()));
+                        PlanOrdering.methodIndex(descriptor.getMethod(), descriptor.getDisplayName()));
             }
             context.getMethodDescriptors().sort(Comparator.comparingInt(positions::get));
         } catch (Throwable t) {

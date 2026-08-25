@@ -7,6 +7,7 @@ import app.doqa.core.DoqaContexts;
 import app.doqa.core.Limits;
 import app.doqa.core.Outcomes;
 import app.doqa.core.Placeholders;
+import app.doqa.core.PlanSelection;
 import app.doqa.core.RuntimeContext;
 import app.doqa.core.StepNode;
 import java.lang.annotation.Annotation;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.extension.DynamicTestInvocationContext;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.InvocationInterceptor;
 import org.junit.jupiter.api.extension.ReflectiveInvocationContext;
+import org.opentest4j.TestAbortedException;
 
 /**
  * JUnit Jupiter extension that captures fixtures and invocation parameters:
@@ -30,7 +32,8 @@ import org.junit.jupiter.api.extension.ReflectiveInvocationContext;
  *   <li>{@code @ParameterizedTest} arguments: named parameters (real names when the host
  *       compiles with {@code -parameters}, else {@code arg0..argN}), also feeding
  *       {@code {param}} placeholder substitution. JUnit-injected parameters (TestInfo,
- *       ArgumentsAccessor, {@code @TempDir}, ...) are skipped.</li>
+ *       ArgumentsAccessor, {@code @TempDir}, ...) are skipped. In a selective (mode-0) run an
+ *       invocation outside the run is aborted here, before its body executes.</li>
  * </ul>
  * Runs on the test thread via {@link InvocationInterceptor}.
  *
@@ -43,6 +46,7 @@ public class DoqaExtension implements InvocationInterceptor {
 
     static {
         AdapterRuntime.configure("junit5", "junit-platform");
+        AdapterRuntime.configureSkipSignal(TestAbortedException::new);
     }
 
     @Override
@@ -104,6 +108,12 @@ public class DoqaExtension implements InvocationInterceptor {
         if (ctx != null) {
             ctx.phase = RuntimeContext.Phase.CALL;
             captureInvocationParameters(ctx, invocationContext);
+            // arguments exist only now: the earliest a {param} id can be compared with the run
+            RuntimeException deselected = PlanSelection.deselectedInvocationSignal(ctx);
+            if (deselected != null) {
+                invocation.skip();
+                throw deselected;
+            }
         }
         invocation.proceed();
     }

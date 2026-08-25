@@ -15,6 +15,7 @@ import app.doqa.e2e4.IgnoredClassScenario;
 import app.doqa.e2e4.OrderScenario;
 import app.doqa.e2e4.ParamScenario;
 import app.doqa.e2e4.PlainListenerScenario;
+import app.doqa.e2e4.RuntimeIdScenario;
 import app.doqa.e2e4.SelectRuleScenario;
 import app.doqa.e2e4.SelectScenario;
 import com.sun.net.httpserver.HttpServer;
@@ -502,6 +503,27 @@ public class CoreRunEndToEndTest {
         assertNotNull(byExternalId(res, "E2E4-RULE-1"));
         assertNull("a deselected test is reported nowhere", byExternalId(res, "E2E4-SEL-2"));
         assertNull("a rule-skipped test is reported nowhere", byExternalId(res, "E2E4-RULE-2"));
+    }
+
+    @Test
+    public void mode0StopsATestWhoseRuntimeIdIsOutsideTheRun() {
+        // a plain suite has no deselection hook: an id pinned inside the body is judged there
+        configure(map("doqa.adapterMode", "0", "doqa.testRunId", "77"));
+        selectiveResponse = "{\"autotests\":[{\"externalId\":\"E2E4-RUN-1\"}]}";
+        RuntimeIdScenario.selectedExecuted = 0;
+        RuntimeIdScenario.deselectedExecuted = 0;
+
+        run(RuntimeIdScenario.class);
+
+        assertEquals("selected test runs", 1, RuntimeIdScenario.selectedExecuted);
+        assertEquals("a test that pins an id outside the run stops at Doqa.addExternalId",
+                0, RuntimeIdScenario.deselectedExecuted);
+
+        List<Map<String, Object>> res = maps(
+                Json.parseObject(only("POST", "/api/autotests/results").body).get("results"));
+        assertEquals(1, res.size());
+        assertNotNull(byExternalId(res, "E2E4-RUN-1"));
+        assertNull("a skipped test is reported nowhere", byExternalId(res, "E2E4-RUN-2"));
     }
 
     @Test

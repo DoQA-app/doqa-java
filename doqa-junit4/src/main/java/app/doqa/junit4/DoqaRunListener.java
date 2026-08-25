@@ -20,6 +20,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.junit.AfterClass;
+import org.junit.AssumptionViolatedException;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -64,6 +65,7 @@ public class DoqaRunListener extends RunListener {
 
     static {
         AdapterRuntime.configure("junit4", "junit4");
+        AdapterRuntime.configureSkipSignal(AssumptionViolatedException::new);
     }
 
     private static final Logger LOG = Logger.getLogger(DoqaRunListener.class.getName());

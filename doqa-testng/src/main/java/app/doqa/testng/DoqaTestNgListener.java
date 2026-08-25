@@ -28,6 +28,7 @@ import org.testng.ITestContext;
 import org.testng.ITestListener;
 import org.testng.ITestNGMethod;
 import org.testng.ITestResult;
+import org.testng.SkipException;
 
 /**
  * Thick TestNG listener for DoQA. Initializes the client + run (mode) on its first event; for each
@@ -58,6 +59,7 @@ public class DoqaTestNgListener implements ITestListener, ISuiteListener, IClass
 
     static {
         AdapterRuntime.configure("testng", "testng");
+        AdapterRuntime.configureSkipSignal(SkipException::new);
     }
 
     private static final Logger LOG = Logger.getLogger(DoqaTestNgListener.class.getName());

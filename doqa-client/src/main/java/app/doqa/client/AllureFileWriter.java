@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>Emitted per test:
  * <ul>
  *   <li>{@code <uuid>-result.json} - status/statusDetails/start/stop, native {@code description},
- *       DoQA labels ({@code doqa_id}, {@code doqa_cases}, {@code AS_ID},
+ *       DoQA labels ({@code doqa_id}, {@code doqa_cases}/{@code doqa_work_items}, {@code AS_ID},
  *       {@code doqa_title}, {@code doqa_create_manual_case}),
  *       {@code package}/{@code testClass}/{@code suite} (namespace/classname override),
  *       parameters (list), attachments ({@code {name, source, type}}),
@@ -41,6 +41,9 @@ public final class AllureFileWriter {
     // Label names are part of the DoQA parser contract (matched case-insensitively there).
     public static final String LABEL_ID = "doqa_id";
     public static final String LABEL_CASES = "doqa_cases";
+    /** Same case binding under the name newer parser generations look up; the label a given
+     *  parser does not know lands harmlessly in properties. */
+    public static final String LABEL_WORK_ITEMS = "doqa_work_items";
     public static final String LABEL_ALLURE_ID = "AS_ID";
     public static final String LABEL_CREATE_MANUAL_CASE = "doqa_create_manual_case";
     /** Human-readable title. Allure results have no dedicated title slot separate from
@@ -208,6 +211,7 @@ public final class AllureFileWriter {
                 csv.append(id);
             }
             addLabel(labels, LABEL_CASES, csv.toString());
+            addLabel(labels, LABEL_WORK_ITEMS, csv.toString());
         }
         addLabel(labels, LABEL_ALLURE_ID, allureId);
         addLabel(labels, LABEL_CREATE_MANUAL_CASE, resMap.get("create_manual_case"));

@@ -16,9 +16,11 @@ import java.util.logging.Logger;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.TestSource;
 import org.junit.platform.engine.support.descriptor.ClassSource;
+import org.junit.platform.engine.support.descriptor.MethodSource;
 import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.TestIdentifier;
 import org.junit.platform.launcher.TestPlan;
+import org.opentest4j.TestAbortedException;
 
 /**
  * Thick JUnit Platform {@link TestExecutionListener} for DoQA. Inits the client + run (mode) once
@@ -39,6 +41,7 @@ public class DoqaTestExecutionListener implements TestExecutionListener {
 
     static {
         AdapterRuntime.configure("junit5", "junit-platform");
+        AdapterRuntime.configureSkipSignal(TestAbortedException::new);
     }
 
     private static final Logger LOG = Logger.getLogger(DoqaTestExecutionListener.class.getName());
@@ -77,12 +80,18 @@ public class DoqaTestExecutionListener implements TestExecutionListener {
                 || local.runContext.selectedExternalIds().isEmpty()) {
             return;
         }
-        if (plan != null && plan.countTestIdentifiers(TestIdentifier::isTest) == 0) {
+        if (plan != null && plan.countTestIdentifiers(DoqaTestExecutionListener::mayExecute) == 0) {
             LOG.warning("DoQA: the run selects " + local.runContext.selectedExternalIds().size()
                     + " autotest(s), but none of them matched the discovered tests - nothing will"
                     + " run. The selected external ids are " + local.runContext.selectedExternalIds()
                     + "; re-report this suite to DoQA so the catalog picks up the current ids.");
         }
+    }
+
+    /** A test, or a container that produces its tests only while it runs (template / factory). */
+    private static boolean mayExecute(TestIdentifier id) {
+        return id.isTest()
+                || id.getSource().filter(source -> source instanceof MethodSource).isPresent();
     }
 
     @Override

@@ -5,6 +5,7 @@ import app.doqa.client.LinkType;
 import app.doqa.core.AttachmentRef;
 import app.doqa.core.DoqaContexts;
 import app.doqa.core.Outcomes;
+import app.doqa.core.PlanSelection;
 import app.doqa.core.RuntimeContext;
 import app.doqa.core.StepNode;
 import app.doqa.core.Steps;
@@ -96,13 +97,15 @@ public final class Doqa {
     /**
      * Pin the autotest {@code externalId} for the CURRENT invocation - wins over any
      * annotation-derived id. The only way dynamic ({@code @TestFactory}-style) tests can carry a
-     * stable explicit id; renaming the dynamic test no longer breaks its history. NB: in
-     * selective mode the id participates in report-time gating, not in discovery deselection.
+     * stable explicit id; renaming the dynamic test no longer breaks its history. In a selective
+     * (mode-0) run an id outside the run aborts the test here - skipped, not failed. Call it as
+     * the first statement of the test: whatever precedes it has already run.
      */
     public static void addExternalId(String externalId) {
         RuntimeContext ctx = DoqaContexts.current();
         if (ctx != null) {
             ctx.externalId = externalId;
+            PlanSelection.abortIfDeselected(ctx, externalId);
         }
     }
 

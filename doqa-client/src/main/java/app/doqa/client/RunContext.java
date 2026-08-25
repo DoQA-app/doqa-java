@@ -38,13 +38,29 @@ public final class RunContext {
     private final List<String> selectedOrder;
     /** externalId -&gt; 0-based plan position (first occurrence wins); empty when no plan. */
     private final Map<String, Integer> orderIndex;
+    /**
+     * {@code <namespace>.<classname>#<method>} of every selected autotest ({@code <classname>#<method>}
+     * when the server has no namespace for it); null when any of them has no identity at all.
+     */
+    private final Set<String> selectedLocations;
 
     public RunContext(String runId, String configurationId, int mode, Set<String> selectedExternalIds) {
-        this(runId, configurationId, mode, selectedExternalIds, null);
+        this(runId, configurationId, mode, selectedExternalIds, null, null);
     }
 
-    public RunContext(String runId, String configurationId, int mode, Set<String> selectedExternalIds,
-                      List<String> selectedOrder) {
+    /** Mode-0 run: membership, execution order and identities all come from one plan. */
+    public static RunContext selective(String runId, String configurationId,
+                                       List<PlannedAutotest> plan) {
+        List<String> selected = new ArrayList<>();
+        for (PlannedAutotest entry : plan) {
+            selected.add(entry.externalId());
+        }
+        return new RunContext(runId, configurationId, DoqaConfig.MODE_SELECTIVE,
+                new HashSet<>(selected), selected, plan);
+    }
+
+    private RunContext(String runId, String configurationId, int mode, Set<String> selectedExternalIds,
+                       List<String> selectedOrder, List<PlannedAutotest> plan) {
         this.runId = runId;
         this.configurationId = configurationId;
         this.mode = mode;
@@ -59,6 +75,7 @@ public final class RunContext {
             }
         }
         this.orderIndex = index;
+        this.selectedLocations = locationsOf(plan);
     }
 
     public String runId() { return runId; }
@@ -71,6 +88,25 @@ public final class RunContext {
 
     public boolean allows(String externalId) {
         return selectedExternalIds == null || selectedExternalIds.contains(externalId);
+    }
+
+    /**
+     * Whether a container whose tests are identified only while they execute may hold a selected
+     * autotest, matched by the identity they were last reported under. Unknown identity - in the
+     * plan or in the container - returns {@code true}.
+     */
+    public boolean mayHoldSelected(String namespace, String classname, String method) {
+        if (selectedLocations == null) {
+            return true;
+        }
+        String cls = trimmed(classname);
+        String m = trimmed(method);
+        if (cls == null || m == null) {
+            return true;
+        }
+        String ns = trimmed(namespace);
+        return selectedLocations.contains(location(ns, cls, m))
+                || selectedLocations.contains(location(null, cls, m));
     }
 
     /**
@@ -99,10 +135,7 @@ public final class RunContext {
             // modes 0/1 report into a pre-existing run - a missing testRunId means every
             // upload would 4xx; fail fast here so the session disables cleanly instead.
             String runId = requireRunId(config, DoqaConfig.MODE_SELECTIVE);
-            // keep the raw server order (list) alongside the membership set so plan order survives.
-            List<String> selected = client.getRunAutotests(runId, confId);
-            return new RunContext(runId, confId, DoqaConfig.MODE_SELECTIVE,
-                    new HashSet<>(selected), selected);
+            return selective(runId, confId, client.getRunAutotests(runId, confId));
         }
         return new RunContext(requireRunId(config, DoqaConfig.MODE_EXISTING_RUN), confId,
                 DoqaConfig.MODE_EXISTING_RUN, null);
@@ -132,6 +165,35 @@ public final class RunContext {
             throw new ApiError("test-run create returned no runId - check the DoQA url/response");
         }
         return runId;
+    }
+
+    /** Location keys of a plan, or null when any entry lacks one. An empty plan places nothing. */
+    private static Set<String> locationsOf(List<PlannedAutotest> plan) {
+        if (plan == null) {
+            return null;
+        }
+        Set<String> locations = new HashSet<>();
+        for (PlannedAutotest entry : plan) {
+            String classname = trimmed(entry.classname());
+            String method = trimmed(entry.runnerMethod());
+            if (classname == null || method == null) {
+                return null;
+            }
+            locations.add(location(trimmed(entry.namespace()), classname, method));
+        }
+        return locations;
+    }
+
+    private static String location(String namespace, String classname, String method) {
+        return (namespace == null ? "" : namespace + ".") + classname + "#" + method;
+    }
+
+    private static String trimmed(String value) {
+        if (value == null) {
+            return null;
+        }
+        String out = value.trim();
+        return out.isEmpty() ? null : out;
     }
 
     private static String requireRunId(DoqaConfig config, int mode) {

@@ -19,13 +19,13 @@
 <dependency>
   <groupId>app.doqa</groupId>
   <artifactId>doqa-junit4</artifactId>
-  <version>0.1.4</version>
+  <version>0.1.5</version>
   <scope>test</scope>
 </dependency>
 ```
 
 ```groovy
-testImplementation("app.doqa:doqa-junit4:0.1.4")   // Gradle
+testImplementation("app.doqa:doqa-junit4:0.1.5")   // Gradle
 ```
 
 Все модули монорепозитория релизятся одной версией - актуальную смотрите в
@@ -150,8 +150,8 @@ JVM-properties `-Ddoqa.*`. Путь к файлу можно переопред�
 | `reporting` | `DOQA_REPORTING` | `api` / `files` / `auto` / `off` | `auto` |
 | `resultsDir` | `DOQA_RESULTS_DIR` | каталог файлового режима | `results` |
 | `url` | `DOQA_URL` | адрес DoQA | - |
-| `token` | `DOQA_TOKEN` | project/personal token | - |
-| `spaceId` | `DOQA_SPACE_ID` | id пространства | - |
+| `token` | `DOQA_TOKEN` | project/personal token (алиас env - `DOQA_PRIVATE_TOKEN`) | - |
+| `spaceId` | `DOQA_SPACE_ID` | id пространства (алиас env - `DOQA_PROJECT_ID`) | - |
 | `configurationId` | `DOQA_CONFIGURATION_ID` | конфигурация прогона (browser/OS/env) | - |
 | `testRunId` | `DOQA_TEST_RUN_ID` | существующий ран (нужен для mode 0 и 1) | - |
 | `testRunName` | `DOQA_TEST_RUN_NAME` | имя создаваемого рана (mode 2) | - |
@@ -161,6 +161,7 @@ JVM-properties `-Ddoqa.*`. Путь к файлу можно переопред�
 | `proxy` | `DOQA_PROXY` | `host:port` | - |
 | `environment` | `DOQA_ENVIRONMENT` | метка окружения прогона (матрица окружений DoQA) | - |
 | `pipelineId` | `DOQA_PIPELINE_ID` | привязка рана к CI-пайплайну | авто: `CI_PIPELINE_ID` / `GITHUB_RUN_ID` |
+| `ciRunId` | `DOQA_CI_RUN_ID` | id CI-запуска, инициированного из DoQA - приезжает в пайплайн сам и уезжает обратно с результатами | - |
 | `branch` | `DOQA_BRANCH` | ветка прогона | авто: `CI_COMMIT_REF_NAME` / `GITHUB_REF_NAME` |
 | `batchSize` | `DOQA_BATCH_SIZE` | максимум результатов в одном батч-запросе | `100` |
 | `requestTimeoutMs` | `DOQA_REQUEST_TIMEOUT_MS` | таймаут HTTP-запроса | `30000` |

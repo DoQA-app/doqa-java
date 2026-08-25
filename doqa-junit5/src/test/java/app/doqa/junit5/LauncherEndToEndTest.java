@@ -1,6 +1,7 @@
 package app.doqa.junit5;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -29,6 +30,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
@@ -368,10 +373,10 @@ class LauncherEndToEndTest {
         only("GET", "/autotests");
         assertEquals(0, all("POST", "/api/autotests/test-runs").size(), "mode 0 must not create a run");
 
-        // the filter must prevent execution, not just reporting; the placeholder template
-        // (E2E-P-{v}) is included as a whole because E2E-P-42 is in the run => 1 + 2 invocations
-        assertEquals(3, SelectDemoScenario.executed,
-                "deselected test must not execute; placeholder template runs whole");
+        // the template (E2E-P-{v}) survives discovery because E2E-P-42 is in the run; the
+        // invocation resolving to E2E-P-43 is aborted once its arguments are known => 1 + 1
+        assertEquals(2, SelectDemoScenario.executed,
+                "neither the deselected test nor the deselected invocation may execute");
 
         Recorded results = only("POST", "/api/autotests/results");
         Map<String, Object> body = Json.parseObject(results.body);
@@ -486,20 +491,119 @@ class LauncherEndToEndTest {
     }
 
     @Test
-    void mode0KeepsTestFactoryAndGatesDynamicTestsAtReportTime() {
-        // dynamic tests do not exist at discovery: the factory container must never be
-        // deselected; runtime Doqa.addExternalId pins ids, report-time gating filters them.
+    void mode0KeepsTestFactoryAndAbortsDynamicTestsOutsideTheRun() {
+        // a plan without identities places nothing: the container is kept and its cases are
+        // judged as they pin their ids
         configure(Map.of("doqa.adapterMode", "0", "doqa.testRunId", "77"));
         selectiveResponse = "{\"autotests\":[{\"externalId\":\"E2E-DYN-1\"}]}";
         FactoryScenario.executed = 0;
+        FactoryScenario.factoryCalls = 0;
         launch(FactoryScenario.class);
 
-        assertEquals(2, FactoryScenario.executed,
-                "the factory container must not be excluded at discovery");
+        assertEquals(1, FactoryScenario.factoryCalls, "unplaceable plan keeps the container");
+        assertEquals(1, FactoryScenario.executed,
+                "the factory container survives discovery, the deselected dynamic test does not run");
         Recorded results = only("POST", "/api/autotests/results");
         List<Map<String, Object>> res = maps(Json.parseObject(results.body).get("results"));
         assertNotNull(byExternalId(res, "E2E-DYN-1"), "selected dynamic test uploaded");
         assertNull(byExternalId(res, "E2E-DYN-2"), "non-selected dynamic test gated out");
+
+        List<Map<String, Object>> defs = maps(Json.parseObject(
+                only("POST", "/api/autotests/upsert").body).get("autotests"));
+        Map<String, Object> def = byExternalId(defs, "E2E-DYN-1");
+        assertEquals("app.doqa.e2e", def.get("namespace"), "identity a plan entry is matched by");
+        assertEquals("FactoryScenario", def.get("classname"));
+        assertEquals("dynamicChecks", def.get("runner_method"));
+    }
+
+    @Test
+    void mode0DoesNotCryEmptyWhenOnlyGeneratedTestsSurvive() {
+        // a surviving template holds the selected invocation - that is a match, not a drift
+        configure(Map.of("doqa.adapterMode", "0", "doqa.testRunId", "77"));
+        selectiveResponse = "{\"autotests\":[{\"externalId\":\"E2E-P-42\"}]}";
+        List<LogRecord> logged = new ArrayList<>();
+        Logger listenerLog = Logger.getLogger(DoqaTestExecutionListener.class.getName());
+        Handler capture = new Handler() {
+            @Override public void publish(LogRecord record) { logged.add(record); }
+            @Override public void flush() { }
+            @Override public void close() { }
+        };
+        capture.setLevel(Level.ALL);
+        listenerLog.addHandler(capture);
+        try {
+            SelectDemoScenario.executed = 0;
+            launch(SelectDemoScenario.class);
+        } finally {
+            listenerLog.removeHandler(capture);
+        }
+
+        assertEquals(1, SelectDemoScenario.executed, "only the selected invocation runs");
+        for (LogRecord record : logged) {
+            assertFalse(String.valueOf(record.getMessage()).contains("none of them matched"),
+                    "the selection did match: " + record.getMessage());
+        }
+    }
+
+    @Test
+    void mode0SkipsAFactoryTheRunSelectedNothingFrom() {
+        // the plan places its only autotest in another class
+        configure(Map.of("doqa.adapterMode", "0", "doqa.testRunId", "77"));
+        selectiveResponse = "{\"autotests\":[{\"externalId\":\"E2E-SEL-1\","
+                + "\"namespace\":\"app.doqa.e2e\",\"classname\":\"SelectDemoScenario\","
+                + "\"runnerMethod\":\"selectedTest\"}]}";
+        FactoryScenario.executed = 0;
+        FactoryScenario.factoryCalls = 0;
+        launch(FactoryScenario.class);
+
+        assertEquals(0, FactoryScenario.factoryCalls, "the factory method itself never runs");
+        assertEquals(0, FactoryScenario.executed);
+        assertTrue(all("POST", "/api/autotests/results").isEmpty(), "nothing to report");
+    }
+
+    @Test
+    void mode0WithAnEmptyPlanRunsNothingAtAll() {
+        // an empty selective window executes nothing, containers included
+        configure(Map.of("doqa.adapterMode", "0", "doqa.testRunId", "77"));
+        selectiveResponse = "{\"autotests\":[]}";
+        FactoryScenario.executed = 0;
+        FactoryScenario.factoryCalls = 0;
+        launch(FactoryScenario.class);
+
+        assertEquals(0, FactoryScenario.factoryCalls);
+        assertTrue(all("POST", "/api/autotests/results").isEmpty());
+    }
+
+    @Test
+    void mode0RunsAFactoryThePlanPlacesASelectedAutotestIn() {
+        // the plan places a selected autotest in this factory
+        configure(Map.of("doqa.adapterMode", "0", "doqa.testRunId", "77"));
+        selectiveResponse = "{\"autotests\":[{\"externalId\":\"E2E-DYN-1\","
+                + "\"namespace\":\"app.doqa.e2e\",\"classname\":\"FactoryScenario\","
+                + "\"runnerMethod\":\"dynamicChecks\"}]}";
+        FactoryScenario.executed = 0;
+        FactoryScenario.factoryCalls = 0;
+        launch(FactoryScenario.class);
+
+        assertEquals(1, FactoryScenario.factoryCalls);
+        assertEquals(1, FactoryScenario.executed);
+        Recorded results = only("POST", "/api/autotests/results");
+        List<Map<String, Object>> res = maps(Json.parseObject(results.body).get("results"));
+        assertNotNull(byExternalId(res, "E2E-DYN-1"));
+        assertNull(byExternalId(res, "E2E-DYN-2"));
+    }
+
+    @Test
+    void runtimeIdsNeverAbortOutsideSelectiveRuns() {
+        // without a selection (mode 1) Doqa.addExternalId is a plain setter
+        configure(Map.of("doqa.adapterMode", "1", "doqa.testRunId", "88"));
+        FactoryScenario.executed = 0;
+        launch(FactoryScenario.class);
+
+        assertEquals(2, FactoryScenario.executed, "no selection, no deselection");
+        Recorded results = only("POST", "/api/autotests/results");
+        List<Map<String, Object>> res = maps(Json.parseObject(results.body).get("results"));
+        assertNotNull(byExternalId(res, "E2E-DYN-1"));
+        assertNotNull(byExternalId(res, "E2E-DYN-2"));
     }
 
     @Test

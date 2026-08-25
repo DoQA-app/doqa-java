@@ -14,6 +14,7 @@ import app.doqa.e2eng.DemoLoginScenario;
 import app.doqa.e2eng.OrderScenario;
 import app.doqa.e2eng.ParallelScenario;
 import app.doqa.e2eng.RetryScenario;
+import app.doqa.e2eng.RuntimeIdScenario;
 import app.doqa.e2eng.SelectBaseScenario;
 import app.doqa.e2eng.SelectGroupScenario;
 import app.doqa.e2eng.SelectScenario;
@@ -155,6 +156,8 @@ public class SuiteRunEndToEndTest {
         SelectScenario.selectedExecuted = 0;
         SelectScenario.deselectedExecuted = 0;
         SelectScenario.dependentExecuted = 0;
+        RuntimeIdScenario.selectedExecuted = 0;
+        RuntimeIdScenario.deselectedExecuted = 0;
         SelectGroupScenario.groupExecuted = 0;
         SelectGroupScenario.dependentExecuted = 0;
     }
@@ -592,6 +595,24 @@ public class SuiteRunEndToEndTest {
         assertNull(byExternalId(res, "E2ENG-SEL-BASE"),
                 "a dependency executed only to keep TestNG happy stays out of the run");
         assertNull(byExternalId(res, "E2ENG-GRP-PREP"));
+    }
+
+    @Test
+    public void mode0StopsARowWhoseRuntimeIdIsOutsideTheRun() {
+        // one autotest per data-provider row: the row's id exists only once the body pins it
+        configure(map("doqa.adapterMode", "0", "doqa.testRunId", "77"));
+        selectiveResponse = "{\"autotests\":[{\"externalId\":\"E2ENG-RUN-1\"}]}";
+
+        run(RuntimeIdScenario.class);
+
+        assertEquals(RuntimeIdScenario.selectedExecuted, 1, "the selected row runs");
+        assertEquals(RuntimeIdScenario.deselectedExecuted, 0,
+                "the row outside the run stops at Doqa.addExternalId");
+
+        List<Map<String, Object>> res = results();
+        assertEquals(res.size(), 1);
+        assertNotNull(byExternalId(res, "E2ENG-RUN-1"));
+        assertNull(byExternalId(res, "E2ENG-RUN-2"), "a skipped row is reported nowhere");
     }
 
     @Test

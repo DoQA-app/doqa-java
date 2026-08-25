@@ -1,5 +1,7 @@
 package app.doqa.core;
 
+import java.util.function.Function;
+
 /**
  * Identity of the concrete framework adapter running on top of commons. Adapter entry points
  * (listener / filter / extension) call {@link #configure} once in a static initializer, before
@@ -11,6 +13,7 @@ public final class AdapterRuntime {
 
     private static volatile String framework = "jvm";
     private static volatile String frameworkLabel = "jvm";
+    private static volatile Function<String, RuntimeException> skipSignal;
 
     private AdapterRuntime() {
     }
@@ -36,5 +39,29 @@ public final class AdapterRuntime {
 
     public static String frameworkLabel() {
         return frameworkLabel;
+    }
+
+    /**
+     * How this framework skips a test: JUnit 5 {@code TestAbortedException}, JUnit 4
+     * {@code AssumptionViolatedException}, TestNG {@code SkipException}. Registered by the adapter
+     * entry point - commons cannot reference framework types.
+     */
+    public static void configureSkipSignal(Function<String, RuntimeException> factory) {
+        if (factory != null) {
+            skipSignal = factory;
+        }
+    }
+
+    /** Framework-native "skip this test" exception, or {@code null} when none is registered. */
+    public static RuntimeException skipSignal(String message) {
+        Function<String, RuntimeException> factory = skipSignal;
+        if (factory == null) {
+            return null;
+        }
+        try {
+            return factory.apply(message);
+        } catch (Throwable t) {
+            return null;
+        }
     }
 }
