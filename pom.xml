@@ -58,7 +58,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <!-- java.net.http.HttpClient + var require Java 11. -->
         <maven.compiler.release>11</maven.compiler.release>
-        <junit.platform.version>1.11.4</junit.platform.version>
+        <junit.platform.version>6.1.2</junit.platform.version>
         <junit.jupiter.version>5.11.4</junit.jupiter.version>
         <junit4.version>4.13.2</junit4.version>
         <testng.version>7.12.0</testng.version>
