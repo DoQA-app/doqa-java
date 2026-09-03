@@ -15,6 +15,8 @@ public final class AutotestDef implements Model {
     private String namespace;
     private String classname;
     private String runnerMethod;
+    // native @AllureId: DoQA links the manual case with this id 1:1 (the AS_ID label in file mode)
+    private String allureId;
     private final List<String> labels = new ArrayList<>();
     private final List<String> tags = new ArrayList<>();
     private final List<Link> links = new ArrayList<>();
@@ -33,6 +35,7 @@ public final class AutotestDef implements Model {
     public AutotestDef namespace(String v) { this.namespace = v; return this; }
     public AutotestDef classname(String v) { this.classname = v; return this; }
     public AutotestDef runnerMethod(String v) { this.runnerMethod = v; return this; }
+    public AutotestDef allureId(String v) { this.allureId = v; return this; }
     public AutotestDef labels(List<String> v) { if (v != null) labels.addAll(v); return this; }
     public AutotestDef tags(List<String> v) { if (v != null) tags.addAll(v); return this; }
     public AutotestDef links(List<Link> v) { if (v != null) links.addAll(v); return this; }
@@ -52,6 +55,7 @@ public final class AutotestDef implements Model {
         m.put("namespace", namespace);
         m.put("classname", classname);
         m.put("runner_method", runnerMethod);
+        m.put("allure_id", allureId);
         m.put("labels", new ArrayList<>(labels));
         m.put("tags", new ArrayList<>(tags));
         m.put("links", Payloads.payloads(links));

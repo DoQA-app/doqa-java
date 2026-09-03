@@ -129,7 +129,8 @@ public final class ResultBuilder {
                 .tags(tags)
                 .links(links)
                 .steps(defSteps)
-                .caseIds(caseIds);
+                .caseIds(caseIds)
+                .allureId(attr.allureId);
 
         // ----- result -----
         String finalMessage = message;

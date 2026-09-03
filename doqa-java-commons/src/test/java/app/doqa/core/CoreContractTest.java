@@ -255,6 +255,23 @@ class CoreContractTest {
     }
 
     @Test
+    void allureIdTravelsWithTheDefinition() throws Exception {
+        RuntimeContext ctx = new RuntimeContext("uid-allure-id");
+        ctx.testRef = ref("allureAnnotated", "n", false);
+        ResultBuilder.Built built = ResultBuilder.build(
+                ctx, "passed", null, null, attachment -> null, null, null);
+
+        assertEquals("777", built.def.toPayload().get("allure_id"));
+        assertEquals("777", built.allureId);
+
+        RuntimeContext plain = new RuntimeContext("uid-no-allure-id");
+        plain.testRef = ref("explicit", "explicit", false);
+        ResultBuilder.Built bare = ResultBuilder.build(
+                plain, "passed", null, null, attachment -> null, null, null);
+        assertNull(bare.def.toPayload().get("allure_id"));
+    }
+
+    @Test
     void classLevelManualCaseFlagIsInherited() throws Exception {
         Method method = InheritedClassOptIn.class.getDeclaredMethod("inheritedFlag");
         TestRef inherited = new TestRef(

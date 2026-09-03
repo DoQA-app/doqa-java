@@ -118,7 +118,8 @@ class ClientContractTest {
                 .links(Arrays.asList(new Link("http://bug/1", LinkType.DEFECT, null, null)))
                 .steps(Arrays.asList(new Step("open", null, StepKind.STEP,
                         Arrays.asList(Step.of("child")))))
-                .caseIds(Arrays.asList(101L, 102L));
+                .caseIds(Arrays.asList(101L, 102L))
+                .allureId("777");
 
         Map<String, Object> resp = client.upsertAutotests(Arrays.asList(def));
         assertTrue(resp.containsKey("E-1"));
@@ -143,6 +144,8 @@ class ClientContractTest {
         assertEquals("child", asMap(asList(step0.get("steps")).get(0)).get("title"));
         // case ids (ints)
         assertEquals(Arrays.asList(101L, 102L), a0.get("case_ids"));
+        // native Allure id -> 1:1 manual-case link on the server
+        assertEquals("777", a0.get("allure_id"));
     }
 
     // ------------------------------------------------------------------ results shape
