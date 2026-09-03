@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -24,14 +25,20 @@ import java.util.logging.Logger;
  * Process-wide lazy singleton holding the resolved config and the active reporting sink:
  * <ul>
  *   <li><b>api</b>: {@link ApiClient} + {@link RunContext} (modes 0/1/2). Batch mode buffers the
- *       whole plan and flushes at plan end in {@code batchSize} chunks (one failed chunk loses
- *       that chunk, never the run); realtime mode streams per top-level test class as soon as its
- *       container (incl. {@code @AfterAll}) finishes, so class teardown is never lost;</li>
+ *       whole plan and flushes at plan end in {@code batchSize} chunks; realtime mode streams per
+ *       top-level test class as soon as its container (incl. {@code @AfterAll}) finishes, so class
+ *       teardown is never lost;</li>
  *   <li><b>files</b>: {@link AllureFileWriter} emitting parser-compatible Allure results
  *       (no network, no credentials: the CI-artifact path);</li>
  *   <li><b>auto</b> (default): api when url/token/space are configured, files otherwise;</li>
  *   <li><b>off</b>: reporting disabled.</li>
  * </ul>
+ * A failing DoQA never costs the results. When the run cannot be established (the server is
+ * unreachable, the token is rejected, the run cannot be created) the session degrades to the file
+ * sink for the whole run; when a results chunk is rejected once the run is established, that
+ * chunk alone is written as files and later chunks keep using the API. Either way the results
+ * dir carries {@link AllureFileWriter#REPORTING_INFO_FILE}, so the upload step of a pipeline can
+ * tell "nothing to upload" from "nothing was reported".
  * A JVM shutdown hook performs a best-effort flush, so results survive a test calling
  * {@code System.exit} or a CI kill between the last test and plan end.
  *
@@ -45,6 +52,8 @@ public final class DoqaSession {
             "Configure them via -Ddoqa.url / -Ddoqa.token / -Ddoqa.spaceId, "
                     + "the DOQA_URL / DOQA_TOKEN / DOQA_SPACE_ID environment variables, "
                     + "or a doqa.properties file.";
+    private static final String UPLOAD_HINT =
+            " Upload them in a later CI step (doqactl upload / POST /api/autotests/report).";
 
     // Test seams (injectable before first use).
     private static volatile Function<DoqaConfig, ApiClient> clientFactory;
@@ -62,17 +71,15 @@ public final class DoqaSession {
     public final RunContext runContext;         // null unless api sink
     public final AllureFileWriter fileWriter;   // null unless files sink
     public final boolean realtime;
+    /** api sink: where a chunk the server rejected lands; null when the results dir is unusable. */
+    private final AllureFileWriter fallbackWriter;
 
     /** One buffered report; keeps the class link for fixture merging at flush. */
     private static final class Reported {
-        final AutotestDef def;
-        final AutotestResult result;
-        final String classKey;
+        final ResultBuilder.Built built;
 
-        Reported(AutotestDef def, AutotestResult result, String classKey) {
-            this.def = def;
-            this.result = result;
-            this.classKey = classKey;
+        Reported(ResultBuilder.Built built) {
+            this.built = built;
         }
     }
 
@@ -84,14 +91,18 @@ public final class DoqaSession {
     /** externalId -> first reporting methodKey; a second method on the same id gets a warning. */
     private final Map<String, String> idOwners = new ConcurrentHashMap<>();
     private final Set<String> duplicateIdsWarned = ConcurrentHashMap.newKeySet();
+    /** api sink: results the server accepted / results written as files instead. */
+    private final AtomicInteger delivered = new AtomicInteger();
+    private final AtomicInteger fallbackResults = new AtomicInteger();
 
-    private DoqaSession(boolean enabled, DoqaConfig config, ApiClient client,
-                        RunContext runContext, AllureFileWriter fileWriter) {
+    private DoqaSession(boolean enabled, DoqaConfig config, ApiClient client, RunContext runContext,
+                        AllureFileWriter fileWriter, AllureFileWriter fallbackWriter) {
         this.enabled = enabled;
         this.config = config;
         this.client = client;
         this.runContext = runContext;
         this.fileWriter = fileWriter;
+        this.fallbackWriter = fallbackWriter;
         this.realtime = config != null && config.importRealtime();
     }
 
@@ -152,38 +163,101 @@ public final class DoqaSession {
         String sink = config.effectiveReporting();
         if (DoqaConfig.REPORTING_OFF.equals(sink)) {
             LOG.log(Level.FINE, "DoQA: reporting=off, reporter disabled.");
-            return new DoqaSession(false, config, null, null, null);
+            return new DoqaSession(false, config, null, null, null, null);
         }
         if (DoqaConfig.REPORTING_FILES.equals(sink)) {
             warnIfUnconfigured(config);
-            try {
-                AllureFileWriter writer = new AllureFileWriter(
-                        Paths.get(config.resultsDir()), AdapterRuntime.frameworkLabel());
-                writer.writeEnvironment(config.environment());
-                // the shared containers carrying class teardown are written by flush(); some hosts
-                // (Gradle, a bare runner) never deliver a run-finished event to the adapter
-                installShutdownHook();
-                return new DoqaSession(true, config, null, null, writer);
-            } catch (RuntimeException e) {
-                LOG.log(Level.WARNING, "DoQA: cannot open results dir, disabling: " + e.getMessage(), e);
-                return new DoqaSession(false, config, null, null, null);
-            }
+            return fileSession(config, null);
         }
         // api sink (explicit or via auto)
         if (!config.enabled()) {
             LOG.log(Level.WARNING, "DoQA: reporting=api, but the configuration is incomplete (missing "
                     + String.join(", ", config.missingApiSettings()) + ") - reporting is disabled. "
                     + CONFIG_HINT);
-            return new DoqaSession(false, config, null, null, null);
+            return new DoqaSession(false, config, null, null, null, null);
         }
         try {
             ApiClient client = clientFactory != null ? clientFactory.apply(config) : new ApiClient(config);
             RunContext runContext = RunContext.establish(client, config);
+            AllureFileWriter fallback = openFallbackWriter(config);
             installShutdownHook();
-            return new DoqaSession(true, config, client, runContext, null);
+            DoqaSession session = new DoqaSession(true, config, client, runContext, null, fallback);
+            session.writeReportingInfo();
+            return session;
         } catch (RuntimeException e) {
-            LOG.log(Level.WARNING, "DoQA: could not establish run, disabling: " + e.getMessage(), e);
-            return new DoqaSession(false, config, null, null, null);
+            LOG.log(Level.WARNING, establishFailureMessage(config, e));
+            LOG.log(Level.FINE, "DoQA: establish failure", e);
+            return fileSession(config, e);
+        }
+    }
+
+    /**
+     * The file sink - chosen deliberately ({@code reporting=files}, an unconfigured {@code auto})
+     * or as the landing of an API session that could not be established ({@code cause} != null).
+     */
+    private static DoqaSession fileSession(DoqaConfig config, RuntimeException cause) {
+        try {
+            AllureFileWriter writer = new AllureFileWriter(
+                    Paths.get(config.resultsDir()), AdapterRuntime.frameworkLabel());
+            writer.writeEnvironment(config.environment());
+            Map<String, String> info = new LinkedHashMap<>();
+            info.put("sink", "files");
+            if (cause != null) {
+                info.put("degradedFrom", "api");
+                info.put("reason", cause.getMessage());
+            }
+            writer.writeReportingInfo(info);
+            // the shared containers carrying class teardown are written by flush(); some hosts
+            // (Gradle, a bare runner) never deliver a run-finished event to the adapter
+            installShutdownHook();
+            return new DoqaSession(true, config, null, null, writer, null);
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "DoQA: cannot open results dir '" + config.resultsDir()
+                    + "', disabling" + (cause != null ? " - the results of this run are LOST" : "")
+                    + ": " + e.getMessage(), e);
+            return new DoqaSession(false, config, null, null, null, null);
+        }
+    }
+
+    /** The api session's landing for rejected chunks; null (such chunks are lost) when unusable. */
+    private static AllureFileWriter openFallbackWriter(DoqaConfig config) {
+        try {
+            return new AllureFileWriter(Paths.get(config.resultsDir()), AdapterRuntime.frameworkLabel());
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "DoQA: cannot open results dir '" + config.resultsDir()
+                    + "' - a results chunk the server rejects will be lost: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private static String establishFailureMessage(DoqaConfig config, RuntimeException e) {
+        StringBuilder msg = new StringBuilder("DoQA: could not establish the test run (")
+                .append(e.getMessage())
+                .append(") - results are written as Allure files to '").append(config.resultsDir())
+                .append("' instead and are NOT sent to DoQA directly.").append(UPLOAD_HINT)
+                .append(failureHint(e, config));
+        if (config.adapterMode() == DoqaConfig.MODE_SELECTIVE) {
+            msg.append(" The run's selection could not be fetched, so every discovered test runs.");
+        }
+        return msg.toString();
+    }
+
+    /** What the status says about the cause - the part of the warning the reader acts on. */
+    private static String failureHint(RuntimeException e, DoqaConfig config) {
+        if (!(e instanceof ApiError)) {
+            return "";
+        }
+        int status = ((ApiError) e).status();
+        switch (status) {
+            case 0:
+                return " DoQA did not answer at " + config.url() + ".";
+            case 401:
+                return " DoQA rejected the token (401): check doqa.token / DOQA_TOKEN.";
+            case 403:
+                return " The token is not allowed for this space or CI binding (403): re-issue the"
+                        + " CI variables from the DoQA CI/CD settings.";
+            default:
+                return status >= 500 ? " DoQA answered " + status + " - the server is unhealthy." : "";
         }
     }
 
@@ -282,7 +356,7 @@ public final class DoqaSession {
         if (!runContext.allows(built.def.externalId())) {
             return;
         }
-        Reported reported = new Reported(built.def, built.result, built.classKey);
+        Reported reported = new Reported(built);
         synchronized (this) {
             if (realtime) {
                 realtimeByClass.computeIfAbsent(topLevelKey(built.classKey), k -> new ArrayList<>())
@@ -340,23 +414,24 @@ public final class DoqaSession {
         if (!snapshot.isEmpty()) {
             upload(snapshot);
         }
+        writeReportingInfo();
     }
 
     /**
      * Merge class fixtures, then upsert + upload in {@code batchSize} chunks. The snapshot is
-     * already detached from the buffers, so a failed chunk loses only itself (logged) and a
-     * repeated flush can never double-merge fixtures or re-send old results.
+     * already detached from the buffers, so a repeated flush can never double-merge fixtures or
+     * re-send old results; a chunk the server rejects is written as files instead.
      */
     private void upload(List<Reported> snapshot) {
         for (Reported r : snapshot) {
-            r.result.prependSetupResults(ClassFixtures.beforeResults(r.classKey, uploader()));
-            r.result.teardownResults(ClassFixtures.afterResults(r.classKey, uploader()));
+            r.built.result.prependSetupResults(ClassFixtures.beforeResults(r.built.classKey, uploader()));
+            r.built.result.teardownResults(ClassFixtures.afterResults(r.built.classKey, uploader()));
         }
         // one def per externalId: parameterized invocations collapse to the same def - sending
         // a copy per invocation only bloats the payload (the server keeps one anyway)
         Map<String, AutotestDef> defs = new LinkedHashMap<>();
         for (Reported r : snapshot) {
-            defs.putIfAbsent(r.def.externalId(), r.def);
+            defs.putIfAbsent(r.built.def.externalId(), r.built.def);
         }
         int chunkSize = config.batchSize();
         List<AutotestDef> defList = new ArrayList<>(defs.values());
@@ -373,14 +448,61 @@ public final class DoqaSession {
             List<Reported> chunk = snapshot.subList(i, Math.min(i + chunkSize, snapshot.size()));
             List<AutotestResult> results = new ArrayList<>(chunk.size());
             for (Reported r : chunk) {
-                results.add(r.result);
+                results.add(r.built.result);
             }
             try {
                 client.uploadResults(runContext.runId(), runContext.configurationId(), results);
+                delivered.addAndGet(results.size());
             } catch (RuntimeException e) {
-                LOG.log(Level.WARNING, "DoQA: results chunk failed (" + results.size()
-                        + " results lost): " + e.getMessage());
+                spill(chunk, e);
             }
+        }
+    }
+
+    /**
+     * A chunk the server did not accept lands on disk in the file sink's format, so the upload
+     * step of the pipeline delivers it later. Nothing is re-sent here: a dead link would cost
+     * every remaining chunk its retries, and a chunk the server may have processed after all
+     * would arrive twice.
+     */
+    private void spill(List<Reported> chunk, RuntimeException cause) {
+        if (fallbackWriter == null) {
+            LOG.log(Level.WARNING, "DoQA: results chunk failed (" + chunk.size()
+                    + " results LOST, results dir unavailable): " + cause.getMessage());
+            return;
+        }
+        int written = 0;
+        for (Reported r : chunk) {
+            try {
+                fallbackWriter.write(r.built.def, r.built.result, r.built.fullName, r.built.allureId);
+                written++;
+            } catch (RuntimeException e) {
+                LOG.log(Level.WARNING, "DoQA: result " + r.built.def.externalId()
+                        + " LOST - cannot write it: " + e.getMessage());
+            }
+        }
+        fallbackResults.addAndGet(written);
+        LOG.log(Level.WARNING, "DoQA: results chunk failed (" + cause.getMessage() + ") - "
+                + written + " of " + chunk.size() + " result(s) written as Allure files to '"
+                + fallbackWriter.dir() + "' instead." + UPLOAD_HINT + failureHint(cause, config));
+    }
+
+    /** api sink: refreshes {@link AllureFileWriter#REPORTING_INFO_FILE} with the current counts. */
+    private void writeReportingInfo() {
+        if (fallbackWriter == null) {
+            return;
+        }
+        Map<String, String> info = new LinkedHashMap<>();
+        info.put("sink", "api");
+        info.put("runId", runContext.runId());
+        info.put("adapterMode", String.valueOf(runContext.mode()));
+        info.put("delivered", String.valueOf(delivered.get()));
+        info.put("fallbackResults", String.valueOf(fallbackResults.get()));
+        try {
+            fallbackWriter.writeReportingInfo(info);
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "DoQA: cannot write " + AllureFileWriter.REPORTING_INFO_FILE
+                    + ": " + e.getMessage());
         }
     }
 

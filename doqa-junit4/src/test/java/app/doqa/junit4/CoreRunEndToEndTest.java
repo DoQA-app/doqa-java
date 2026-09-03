@@ -147,6 +147,7 @@ public class CoreRunEndToEndTest {
         props.put("doqa.token", "E2E-TOKEN");
         props.put("doqa.spaceId", "31");
         props.put("doqa.reporting", "api");
+        props.put("doqa.resultsDir", "target/doqa-e2e-results");
         props.putAll(extra);
         for (Map.Entry<String, String> e : props.entrySet()) {
             setProp(e.getKey(), e.getValue());

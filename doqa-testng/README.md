@@ -141,6 +141,14 @@ upload-to-doqa:
   script: doqactl upload --token "$DOQA_TOKEN" --space "$DOQA_SPACE_ID" results/
 ```
 
+Если DoQA отвергла запрос или не ответила **на старте** (401/403 на токен, 422 «нет активной
+CI-привязки», сеть) - адаптер не выключается, а уходит в файловый режим на весь прогон: результаты
+пишутся в `resultsDir`, в лог - WARNING с причиной и подсказкой, что делать. Если пакет результатов
+отвергнут **посреди прогона** (обрыв связи, отозванный токен) - в файлы уходит только этот пакет,
+остальное продолжает идти по API. Рядом с результатами лежит `doqa-reporting.properties`
+(`sink=api|files`, `runId`, `delivered`, `fallbackResults`): по нему джоба загрузки отличает «файлов
+нет, потому что всё ушло по API» от «адаптер не отработал» и догружает то, что осталось на диске.
+
 ---
 
 ## Полная конфигурация
@@ -488,6 +496,7 @@ test {
 | Результатов нет вообще, в логе ни строчки от DoQA | адаптера нет в прогоне: зависимость не в test-scope, либо стоит `doqa.reporting=off`, либо хост отключил SPI (`-spilistenerstoskip`, свой `ITestNGListenerFactory`) - тогда пропишите листенер в `testng.xml` (см. «Регистрация») |
 | `Tests run: 0` или часть тестов молча не пошла, сборка зелёная | на test-classpath оказались и TestNG, и JUnit Platform: surefire выбирает **один** провайдер, тесты второго фреймворка не запускаются вовсе. Уберите лишний фреймворк либо зафиксируйте провайдер явно (`surefire-testng` в `<dependencies>` плагина) |
 | Результаты в `results/`, а ждали в DoQA | это `auto` без API-конфига - в логе есть WARNING «no reporting configuration found (missing …)»; задайте `url`/`token`/`spaceId`. Если файловый режим выбран сознательно, поставьте `reporting=files` - предупреждение исчезнет |
+| DoQA недоступна или отвергла токен, а в `results/` появились файлы | так и задумано: адаптер деградировал в файловый режим (в логе WARNING «could not establish the test run» либо «results chunk failed»); догрузите `results/` джобой загрузки, как в файловом режиме |
 | `NoSuchMethodError: DoqaStepAspect.aspectOf()` | вы сузили вивинг своим `aop.xml` и исключили аспект - верните `<include within="app.doqa.aspects.DoqaStepAspect"/>` |
 | `@Step`-шаги не появляются | не подключён `-javaagent:aspectjweaver` (см. «Шаги `@Step` через AspectJ»); `Doqa.step(...)` работает и без агента |
 | На JDK 16+ падает вивер / нет шагов | добавьте `--add-opens java.base/java.lang=ALL-UNNAMED` к argLine |

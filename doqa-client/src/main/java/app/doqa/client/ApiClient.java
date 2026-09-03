@@ -230,6 +230,7 @@ public final class ApiClient {
     private Transport.Response request(Transport.Request req) {
         int attempts = circuitAttempts(req);
         IOException last = null;
+        int lastStatus = 0;
         for (int attempt = 0; attempt < attempts; attempt++) {
             Transport.Response resp;
             try {
@@ -245,19 +246,25 @@ public final class ApiClient {
             }
             boolean retriableStatus = resp.status == 429 || (resp.status >= 500 && req.idempotent);
             if (retriableStatus && attempt + 1 < attempts) {
+                lastStatus = resp.status;
                 backoff(attempt, req);
                 continue;
             }
             if (resp.status >= 400) {
                 recordFailure();
                 String body = resp.body.length() > 500 ? resp.body.substring(0, 500) : resp.body;
-                throw new ApiError(req.method + " " + safeUrl(req.url) + " -> " + resp.status + ": " + body);
+                throw new ApiError(req.method + " " + safeUrl(req.url) + " -> " + resp.status + ": " + body,
+                        resp.status);
             }
             consecutiveFailures.set(0);
             return resp;
         }
         recordFailure();
-        throw new ApiError("request to " + safeUrl(req.url) + " failed after retries", last);
+        if (last != null) {
+            throw new ApiError("request to " + safeUrl(req.url) + " failed after retries", last);
+        }
+        throw new ApiError("request to " + safeUrl(req.url) + " failed after retries (last status "
+                + lastStatus + ")", lastStatus);
     }
 
     /**

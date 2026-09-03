@@ -243,7 +243,7 @@ public class AdapterContractTest {
     public void mode2SessionCreatesRunBuffersAndFlushes() {
         FakeTransport t = new FakeTransport();
         DoqaSession session = session(t, new DoqaConfig.Builder()
-                .url("https://x/").token("T").spaceId("S").adapterMode(2).build());
+                .url("https://x/").token("T").spaceId("S").resultsDir("target/doqa-session-results").adapterMode(2).build());
         assertTrue(session.enabled);
         assertEquals(session.runContext.runId(), "RUN-1");
 
@@ -261,7 +261,7 @@ public class AdapterContractTest {
     public void mode0SessionSelectsExternalIds() {
         FakeTransport t = new FakeTransport();
         DoqaSession session = session(t, new DoqaConfig.Builder()
-                .url("https://x/").token("T").spaceId("S").adapterMode(0).testRunId("RUN-9").build());
+                .url("https://x/").token("T").spaceId("S").resultsDir("target/doqa-session-results").adapterMode(0).testRunId("RUN-9").build());
         assertNotNull(session.runContext.selectedExternalIds());
         assertTrue(session.runContext.allows("DOQA-42"));
         assertFalse(session.runContext.allows("DOQA-999"));
@@ -277,7 +277,7 @@ public class AdapterContractTest {
     public void batchFlushChunksAndDeduplicatesDefs() {
         FakeTransport t = new FakeTransport();
         DoqaSession session = session(t, new DoqaConfig.Builder()
-                .url("https://x/").token("T").spaceId("S").adapterMode(2).batchSize(2).build());
+                .url("https://x/").token("T").spaceId("S").resultsDir("target/doqa-session-results").adapterMode(2).batchSize(2).build());
         // 3 invocations of one parameterized test (same def id) + 2 other tests = 5 results
         for (int i = 0; i < 3; i++) {
             session.report(built(new AutotestDef("PARAM-1", "p"),
@@ -303,7 +303,7 @@ public class AdapterContractTest {
     public void failedFlushLosesOnlyItselfAndNeverResends() {
         FakeTransport t = new FakeTransport();
         DoqaSession session = session(t, new DoqaConfig.Builder()
-                .url("https://x/").token("T").spaceId("S").adapterMode(2).build());
+                .url("https://x/").token("T").spaceId("S").resultsDir("target/doqa-session-results").adapterMode(2).build());
         session.report(built(new AutotestDef("T-1", "a"), new AutotestResult("T-1", Outcome.PASSED)));
         t.failResults = true;
         session.flush();  // results chunk fails -> logged, buffer already detached
@@ -316,7 +316,7 @@ public class AdapterContractTest {
     public void realtimeStreamsPerClassKeepingTeardown() {
         FakeTransport t = new FakeTransport();
         DoqaSession session = session(t, new DoqaConfig.Builder()
-                .url("https://x/").token("T").spaceId("S").adapterMode(2).importRealtime(true).build());
+                .url("https://x/").token("T").spaceId("S").resultsDir("target/doqa-session-results").adapterMode(2).importRealtime(true).build());
         session.report(new ResultBuilder.Built(new AutotestDef("RT-1", "a"),
                 new AutotestResult("RT-1", Outcome.PASSED), null, null, "com.x.SuiteOne",
                 "com.x.SuiteOne#a"));

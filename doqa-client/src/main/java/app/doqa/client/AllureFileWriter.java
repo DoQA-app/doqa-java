@@ -50,6 +50,14 @@ public final class AllureFileWriter {
      *  name/fullName, so it travels as a label like the other {@code doqa_*} extensions. */
     public static final String LABEL_TITLE = "doqa_title";
 
+    /**
+     * Side file next to the results: which sink the session used ({@code sink=api|files}), the run
+     * it reported into and how many results fell back to files. The upload step of a pipeline reads
+     * it to tell "no result files because everything went over the API" from "no result files
+     * because the adapter never reported".
+     */
+    public static final String REPORTING_INFO_FILE = "doqa-reporting.properties";
+
     private final Path dir;
     private final String frameworkLabel;
     /** source file name -> [originalName, contentType]; populated by {@link #storeAttachment}. */
@@ -120,6 +128,23 @@ public final class AllureFileWriter {
                     ("environment=" + environment.trim() + "\n").getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new UncheckedIOException("cannot write environment.properties", e);
+        }
+    }
+
+    /** Writes {@link #REPORTING_INFO_FILE} from {@code entries} (null values are skipped). */
+    public void writeReportingInfo(Map<String, String> entries) {
+        StringBuilder out = new StringBuilder();
+        for (Map.Entry<String, String> e : entries.entrySet()) {
+            if (e.getValue() == null) {
+                continue;
+            }
+            out.append(e.getKey()).append('=')
+                    .append(e.getValue().replace('\r', ' ').replace('\n', ' ')).append('\n');
+        }
+        try {
+            Files.write(dir.resolve(REPORTING_INFO_FILE), out.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            throw new UncheckedIOException("cannot write " + REPORTING_INFO_FILE, e);
         }
     }
 

@@ -80,6 +80,8 @@ class LauncherEndToEndTest {
     private final List<String> propsSet = new ArrayList<>();
     /** Per-test override of the GET /autotests selective (ordered) plan response. */
     private volatile String selectiveResponse = DEFAULT_SELECTIVE_RESPONSE;
+    /** Per-test status of the GET /autotests selective plan (a rejected establish). */
+    private volatile int selectiveStatus = 200;
 
     @BeforeEach
     void startFakeBackend() throws IOException {
@@ -96,7 +98,9 @@ class LauncherEndToEndTest {
             byte[] resp = respond(exchange.getRequestMethod(), path)
                     .getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
-            exchange.sendResponseHeaders(200, resp.length);
+            int status = "GET".equals(exchange.getRequestMethod()) && path.endsWith("/autotests")
+                    ? selectiveStatus : 200;
+            exchange.sendResponseHeaders(status, resp.length);
             try (OutputStream os = exchange.getResponseBody()) {
                 os.write(resp);
             }
@@ -138,6 +142,7 @@ class LauncherEndToEndTest {
         }
         recorded.clear();
         selectiveResponse = DEFAULT_SELECTIVE_RESPONSE;
+        selectiveStatus = 200;
         OrderLog.EXECUTED.clear();
     }
 
@@ -147,6 +152,7 @@ class LauncherEndToEndTest {
         props.put("doqa.token", "E2E-TOKEN");
         props.put("doqa.spaceId", "31");
         props.put("doqa.reporting", "api");
+        props.put("doqa.resultsDir", "target/doqa-e2e-results");
         props.putAll(extra);
         for (Map.Entry<String, String> e : props.entrySet()) {
             System.setProperty(e.getKey(), e.getValue());
@@ -387,6 +393,28 @@ class LauncherEndToEndTest {
         // per-invocation precision at report time: substituted id checked against the run list
         assertNotNull(byExternalId(res, "E2E-P-42"), "selected placeholder invocation uploaded");
         assertNull(byExternalId(res, "E2E-P-43"), "non-selected placeholder invocation dropped");
+    }
+
+    @Test
+    void mode0RejectedAtEstablishRunsEverythingAndLeavesFileResults() throws IOException {
+        Path resultsDir = Files.createTempDirectory("doqa-e2e-degraded");
+        configure(Map.of("doqa.adapterMode", "0", "doqa.testRunId", "77",
+                "doqa.resultsDir", resultsDir.toString()));
+        selectiveStatus = 401;
+        SelectDemoScenario.executed = 0;
+
+        launch(SelectDemoScenario.class);
+
+        // the plan could not be fetched: no selection (fail-open), nothing else asked of the API
+        only("GET", "/autotests");
+        assertEquals(0, all("POST", "/api/autotests/results").size(), "no upload with a rejected token");
+        assertEquals(4, SelectDemoScenario.executed, "without a plan every discovered test runs");
+        // ... and every result is on disk, ready for the pipeline's upload step
+        assertEquals(4, readResults(resultsDir).size());
+        String info = new String(Files.readAllBytes(resultsDir.resolve("doqa-reporting.properties")),
+                StandardCharsets.UTF_8);
+        assertTrue(info.contains("sink=files"), info);
+        assertTrue(info.contains("degradedFrom=api"), info);
     }
 
     // ------------------------------------------------------------------ plan orderers
