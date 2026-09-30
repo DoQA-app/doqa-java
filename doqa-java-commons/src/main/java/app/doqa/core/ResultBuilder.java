@@ -48,15 +48,22 @@ public final class ResultBuilder {
         public final String allureId;   // native @AllureId, preserved 1:1 as the AS_ID label
         public final String classKey;   // top-level test class - links class fixtures (@BeforeAll/@AfterAll)
         public final String methodKey;  // declaring method - duplicate-externalId diagnostics
+        public final String frameworkLabel;
 
         public Built(AutotestDef def, AutotestResult result, String fullName, String allureId,
                      String classKey, String methodKey) {
+            this(def, result, fullName, allureId, classKey, methodKey, null);
+        }
+
+        public Built(AutotestDef def, AutotestResult result, String fullName, String allureId,
+                     String classKey, String methodKey, String frameworkLabel) {
             this.def = def;
             this.result = result;
             this.fullName = fullName;
             this.allureId = allureId;
             this.classKey = classKey;
             this.methodKey = methodKey;
+            this.frameworkLabel = frameworkLabel;
         }
     }
 
@@ -81,13 +88,14 @@ public final class ResultBuilder {
 
         // runtime override (Doqa.addExternalId) wins over any annotation-derived id - the only
         // way dynamic tests can pin a stable explicit id.
-        String externalId = Placeholders.resolve(
-                ctx.externalId != null ? ctx.externalId : attr.externalId, params);
+        String externalId = attr.externalId(ctx.externalId, params);
         if (gate != null && !gate.allows(externalId)) {
             return null;
         }
-        String name = Placeholders.resolve(firstNonBlank(ctx.displayName, meta.displayName,
-                ref.displayName, ref.fullName()), params);
+        String name = Limits.clip(Placeholders.resolve(firstNonBlank(ctx.displayName,
+                meta.displayName, ref.displayName, ref.fullName()), params), Limits.MAX_NAME);
+        String definitionName = ctx.definitionName == null || ctx.definitionName.trim().isEmpty()
+                ? name : Limits.clip(ctx.definitionName, Limits.MAX_NAME);
         String title = Placeholders.resolve(firstNonBlank(ctx.title, meta.title), params);
         String description = Placeholders.resolve(
                 firstNonBlank(ctx.description, meta.description), params);
@@ -117,14 +125,14 @@ public final class ResultBuilder {
             defSteps.add(toDefStep(n, StepKind.AFTER.wire()));
         }
 
-        AutotestDef def = new AutotestDef(externalId, name)
+        AutotestDef def = new AutotestDef(externalId, definitionName)
                 .title(title)
                 .description(description)
                 .namespace(namespace)
                 .classname(classname)
                 // runner identity: DoQA builds its native selection filter from the method name,
                 // which a custom display name hides.
-                .runnerMethod(ref.methodName)
+                .runnerMethod(Limits.clip(ref.methodName, Limits.MAX_RUNNER_METHOD))
                 .labels(labels)
                 .tags(tags)
                 .links(links)
@@ -178,8 +186,8 @@ public final class ResultBuilder {
                 .createManualCase(meta.createManualCase || ctx.createManualCase);
 
         // exact test-class FQCN - ClassFixtures walks its enclosing chain for @BeforeAll/@AfterAll
-        return new Built(def, result, ref == null ? null : ref.fullName(), attr.allureId,
-                ref == null ? null : ref.fqcn, ref == null ? null : ref.methodKey());
+        return new Built(def, result, ref.fullName(), attr.allureId, ref.fqcn, ref.methodKey(),
+                ref.frameworkLabel());
     }
 
     // ------------------------------------------------------------------ steps
@@ -188,7 +196,8 @@ public final class ResultBuilder {
         for (StepNode c : node.children) {
             children.add(toDefStep(c, null));  // kind only meaningful at top level
         }
-        return new Step(node.title, node.description, kind, children);
+        String title = node.definitionTitle != null ? node.definitionTitle : node.title;
+        return new Step(Limits.clip(title, Limits.MAX_STEP_TITLE), node.description, kind, children);
     }
 
     public static StepResult toResultStep(StepNode node, AttachmentUploader uploader) {
@@ -204,7 +213,8 @@ public final class ResultBuilder {
             children.add(toResultStep(c, uploader));
         }
         String outcome = node.outcome != null ? node.outcome : Outcome.PASSED.wire();
-        StepResult step = new StepResult(node.title, outcome, node.durationMs,
+        StepResult step = new StepResult(Limits.clip(node.title, Limits.MAX_STEP_TITLE), outcome,
+                node.durationMs,
                 Limits.truncate(node.message, maxMessage(DoqaSession.currentConfig())), atts, children);
         if (node.startMillis > 0) {
             step.startedOn(node.startMillis);
@@ -269,15 +279,16 @@ public final class ResultBuilder {
         return limits != null ? limits.maxParameterLength() : DoqaConfig.DEFAULT_MAX_PARAMETER_LENGTH;
     }
 
-    /** Namespace an autotest is reported under: {@code @DoqaNamespace} if declared, else the package. */
+    /** Namespace an autotest is reported under: {@code @DoqaNamespace}, else the ref's, else the package. */
     public static String namespaceOf(TestRef ref, Meta meta, Map<String, String> params) {
-        return Placeholders.resolve(firstNonBlank(meta.namespace, ref.packageName()),
+        return Placeholders.resolve(firstNonBlank(meta.namespace, ref.namespace, ref.packageName()),
                 params == null ? Collections.<String, String>emptyMap() : params);
     }
 
-    /** Classname an autotest is reported under: {@code @DoqaClassname} if declared, else the class. */
+    /** Classname an autotest is reported under: {@code @DoqaClassName}, else the ref's, else the class. */
     public static String classnameOf(TestRef ref, Meta meta, Map<String, String> params) {
-        return Placeholders.resolve(firstNonBlank(meta.classname, ref.simpleClassName()),
+        return Placeholders.resolve(firstNonBlank(meta.classname, ref.classname,
+                ref.simpleClassName()),
                 params == null ? Collections.<String, String>emptyMap() : params);
     }
 

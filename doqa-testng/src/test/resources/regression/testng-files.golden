@@ -1,0 +1,21 @@
+file framework=testng id=ALLURE-321 name=allureOnly fullName=app.doqa.e2eng.regression.KeysScenario.allureOnly
+file framework=testng id=ALLURE-777 name=only fullName=app.doqa.e2eng.regression.ClassAllureScenario.only
+file framework=testng id=CLASS-ID-1 name=first fullName=app.doqa.e2eng.regression.ClassIdScenario.first
+file framework=testng id=CLASS-ID-1 name=second fullName=app.doqa.e2eng.regression.ClassIdScenario.second
+file framework=testng id=DOQA-77 name=Transfer [DOQA-77] works fullName=app.doqa.e2eng.regression.KeysScenario.idInDescription
+file framework=testng id=EXPLICIT-1 name=explicitBeatsAllure fullName=app.doqa.e2eng.regression.KeysScenario.explicitBeatsAllure
+file framework=testng id=PAYNG-EUR name=Pay 10 in EUR fullName=app.doqa.e2eng.regression.KeysScenario.placeholders
+file framework=testng id=PAYNG-USD name=Pay 20 in USD fullName=app.doqa.e2eng.regression.KeysScenario.placeholders
+file framework=testng id=RUNTIME-1 name=runtimeId fullName=app.doqa.e2eng.regression.KeysScenario.runtimeId
+file framework=testng id=testng:04d6ad27c36b9fe4845d071c374137db497d3360 name=customCoordinates fullName=app.doqa.e2eng.regression.KeysScenario.customCoordinates
+file framework=testng id=testng:2d556b2bcdc4eccc276887dca1de6613378e48a3 name=failsAssertion fullName=app.doqa.e2eng.regression.KeysScenario.failsAssertion
+file framework=testng id=testng:31dc5e2bdffad05c0b35c1672274a1fef0402454 name=Plain description fullName=app.doqa.e2eng.regression.KeysScenario.describedHash
+file framework=testng id=testng:a34206963de2b0a8353d028d7fd1efb6d96ffde7 name=skipSignal fullName=app.doqa.e2eng.regression.KeysScenario.skipSignal
+file framework=testng id=testng:ab8be2b58b6e0a07530c5663a4242ef5e0d91771 name=repeated fullName=app.doqa.e2eng.regression.KeysScenario.repeated
+file framework=testng id=testng:ab8be2b58b6e0a07530c5663a4242ef5e0d91771 name=repeated fullName=app.doqa.e2eng.regression.KeysScenario.repeated
+file framework=testng id=testng:b06695f39827658590b09b90208400043e1707ea name=testNameOutsideHash fullName=app.doqa.e2eng.regression.KeysScenario.testNameOutsideHash
+file framework=testng id=testng:bba3cfa74f42adf08dcbd4c04e2748e531c92615 name=annotated fullName=app.doqa.e2eng.regression.KeysScenario.annotated
+file framework=testng id=testng:c4a33d37952fdf8a3ec0e83c4ddf596cc78358fa name=breaks fullName=app.doqa.e2eng.regression.KeysScenario.breaks
+file framework=testng id=testng:c7bb4d620696b219e04b3b789737738657f3f7f9 name=plainHash fullName=app.doqa.e2eng.regression.KeysScenario.plainHash
+file framework=testng id=testng:f00b43a3d69fbd16bcf81867fa4751d2b80a0bd5 name=collapsed fullName=app.doqa.e2eng.regression.KeysScenario.collapsed
+file framework=testng id=testng:f00b43a3d69fbd16bcf81867fa4751d2b80a0bd5 name=collapsed fullName=app.doqa.e2eng.regression.KeysScenario.collapsed

@@ -34,8 +34,10 @@ import org.testng.ITestResult;
  */
 final class TestRefs {
 
+    static final String FRAMEWORK = "testng";
+
     static {
-        AdapterRuntime.configure("testng", "testng");
+        AdapterRuntime.configure(FRAMEWORK, FRAMEWORK);
     }
 
     /** Attribute holding this invocation's key; {@link ITestResult} is an {@code IAttributes}. */
@@ -87,9 +89,13 @@ final class TestRefs {
                 : (javaMethod == null ? null : javaMethod.getDeclaringClass().getName());
         String methodName = javaMethod != null ? javaMethod.getName()
                 : (method == null ? null : method.getMethodName());
-        return new TestRef(fqcn, methodName, SignatureHash.parameterTypes(javaMethod),
-                displayName(method, methodName), parameterized(method, javaMethod),
-                testClass, javaMethod);
+        return new TestRef.Builder().fqcn(fqcn).methodName(methodName)
+                .methodParamTypes(SignatureHash.parameterTypes(javaMethod))
+                .displayName(displayName(method, methodName))
+                .parameterized(parameterized(method, javaMethod))
+                .testClass(testClass).testMethod(javaMethod)
+                .framework(FRAMEWORK, FRAMEWORK)
+                .build();
     }
 
     /**

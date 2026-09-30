@@ -29,8 +29,11 @@ import org.junit.platform.launcher.TestIdentifier;
  */
 final class TestRefs {
 
+    static final String FRAMEWORK = "junit5";
+    static final String FRAMEWORK_LABEL = "junit-platform";
+
     static {
-        AdapterRuntime.configure("junit5", "junit-platform");
+        AdapterRuntime.configure(FRAMEWORK, FRAMEWORK_LABEL);
     }
 
     private TestRefs() {
@@ -63,14 +66,14 @@ final class TestRefs {
         boolean parameterized = id.getUniqueId() != null
                 && id.getUniqueId().contains("test-template-invocation");
 
-        return new TestRef(fqcn, methodName, paramTypes, id.getDisplayName(),
+        return ref(fqcn, methodName, paramTypes, id.getDisplayName(),
                 parameterized, testClass, testMethod);
     }
 
     /** Discovery-time ref from a post-discovery {@link TestDescriptor} with a method source. */
     static TestRef fromDescriptor(TestDescriptor descriptor, MethodSource ms) {
         Class<?> testClass = Reflections.loadClass(ms.getClassName());
-        return new TestRef(
+        return ref(
                 ms.getClassName(), ms.getMethodName(), ms.getMethodParameterTypes(),
                 descriptor.getDisplayName(), isTemplateContainer(descriptor.getUniqueId()),
                 testClass,
@@ -86,9 +89,19 @@ final class TestRefs {
         Class<?> testClass = method.getDeclaringClass();
         MethodSource source = MethodSource.from(method);
         String effectiveDisplayName = displayName != null ? displayName : defaultDisplayName(method);
-        return new TestRef(
+        return ref(
                 testClass.getName(), method.getName(), source.getMethodParameterTypes(),
                 effectiveDisplayName, isTemplateMethod(method), testClass, method);
+    }
+
+    private static TestRef ref(String fqcn, String methodName, String paramTypes,
+                               String displayName, boolean parameterized, Class<?> testClass,
+                               Method testMethod) {
+        return new TestRef.Builder().fqcn(fqcn).methodName(methodName)
+                .methodParamTypes(paramTypes).displayName(displayName).parameterized(parameterized)
+                .testClass(testClass).testMethod(testMethod)
+                .framework(FRAMEWORK, FRAMEWORK_LABEL)
+                .build();
     }
 
     /** Last uniqueId segment is a {@code @TestTemplate} container ({@code @ParameterizedTest}...). */

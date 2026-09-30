@@ -15,9 +15,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -64,6 +72,11 @@ public final class DoqaSession {
     /** Cached {@link #discoverySelectionActive()} verdict; the filter asks per descriptor. */
     private static volatile Boolean discoveryVerdict;
     private static final AtomicBoolean SHUTDOWN_HOOK_INSTALLED = new AtomicBoolean();
+
+    private static final Object BUILDER_LOCK = new Object();
+    private static ExecutorService builder;
+    private static volatile Thread builderThread;
+    private static final long AWAIT_REPORTS_MINUTES = 5;
 
     public final boolean enabled;
     public final DoqaConfig config;
@@ -345,7 +358,8 @@ public final class DoqaSession {
             // class container written at flush (the parser merges both onto each child).
             built.result.prependSetupResults(
                     ClassFixtures.beforeResults(built.classKey, uploader()));
-            String uuid = fileWriter.write(built.def, built.result, built.fullName, built.allureId);
+            String uuid = fileWriter.write(built.def, built.result, built.fullName, built.allureId,
+                    built.frameworkLabel);
             if (built.classKey != null) {
                 synchronized (this) {
                     fileUuidsByClass.computeIfAbsent(built.classKey, k -> new ArrayList<>()).add(uuid);
@@ -367,6 +381,61 @@ public final class DoqaSession {
         }
     }
 
+    /** {@link #report} off the caller's thread, on the JVM's single builder thread, in order. */
+    public void reportAsync(Supplier<ResultBuilder.Built> task) {
+        if (!enabled || task == null) {
+            return;
+        }
+        Runnable job = () -> {
+            try {
+                report(task.get());
+            } catch (Throwable t) {
+                LOG.log(Level.WARNING, "DoQA: building a result failed - it is not reported", t);
+            }
+        };
+        try {
+            builder().execute(job);
+        } catch (RejectedExecutionException e) {
+            job.run();
+        }
+    }
+
+    private static ExecutorService builder() {
+        synchronized (BUILDER_LOCK) {
+            if (builder == null) {
+                builder = Executors.newSingleThreadExecutor(r -> {
+                    Thread t = new Thread(r, "doqa-result-builder");
+                    t.setDaemon(true);
+                    builderThread = t;
+                    return t;
+                });
+            }
+            return builder;
+        }
+    }
+
+    /** Blocks until every result handed to {@link #reportAsync} is built and reported. */
+    public static void awaitPendingReports() {
+        ExecutorService local;
+        synchronized (BUILDER_LOCK) {
+            local = builder;
+        }
+        if (local == null || Thread.currentThread() == builderThread) {
+            return;
+        }
+        try {
+            Future<?> barrier = local.submit(() -> { });
+            barrier.get(AWAIT_REPORTS_MINUTES, TimeUnit.MINUTES);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (TimeoutException e) {
+            LOG.log(Level.WARNING, "DoQA: results are still being built after "
+                    + AWAIT_REPORTS_MINUTES + " minutes - flushing without them");
+        } catch (ExecutionException | RejectedExecutionException e) {
+            LOG.log(Level.FINE, "DoQA: waiting for pending results failed", e);
+        }
+    }
+
     /**
      * Realtime streaming point: called when a top-level class container (incl. its
      * {@code @AfterAll}) has finished - uploads that class's results with complete fixtures.
@@ -375,6 +444,7 @@ public final class DoqaSession {
         if (!enabled || !realtime || fileSink()) {
             return;
         }
+        awaitPendingReports();
         List<Reported> batch;
         synchronized (this) {
             batch = realtimeByClass.remove(topLevelKey(classFqcn));
@@ -389,6 +459,7 @@ public final class DoqaSession {
         if (!enabled) {
             return;
         }
+        awaitPendingReports();
         if (fileSink()) {
             synchronized (this) {
                 for (Map.Entry<String, List<String>> e : fileUuidsByClass.entrySet()) {
@@ -474,7 +545,8 @@ public final class DoqaSession {
         int written = 0;
         for (Reported r : chunk) {
             try {
-                fallbackWriter.write(r.built.def, r.built.result, r.built.fullName, r.built.allureId);
+                fallbackWriter.write(r.built.def, r.built.result, r.built.fullName, r.built.allureId,
+                        r.built.frameworkLabel);
                 written++;
             } catch (RuntimeException e) {
                 LOG.log(Level.WARNING, "DoQA: result " + r.built.def.externalId()

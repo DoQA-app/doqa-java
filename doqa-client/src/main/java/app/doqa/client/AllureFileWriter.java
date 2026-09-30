@@ -155,6 +155,12 @@ public final class AllureFileWriter {
      * adapter (they are not part of the wire model).
      */
     public String write(AutotestDef def, AutotestResult result, String fullName, String allureId) {
+        return write(def, result, fullName, allureId, null);
+    }
+
+    /** As above, with a per-result {@code framework} label; {@code null} keeps the writer's. */
+    public String write(AutotestDef def, AutotestResult result, String fullName, String allureId,
+                        String frameworkLabel) {
         Map<String, Object> defMap = def.toPayload();
         Map<String, Object> resMap = result.toPayload();
         String uuid = UUID.randomUUID().toString();
@@ -177,7 +183,8 @@ public final class AllureFileWriter {
         }
         allure.put("start", resMap.get("started_on"));
         allure.put("stop", resMap.get("completed_on"));
-        allure.put("labels", labels(defMap, resMap, allureId));
+        allure.put("labels", labels(defMap, resMap, allureId,
+                frameworkLabel != null ? frameworkLabel : this.frameworkLabel));
         allure.put("parameters", orEmpty(resMap.get("parameters")));
         allure.put("attachments", attachments(resMap.get("attachments")));
         allure.put("steps", steps(resMap.get("step_results")));
@@ -222,7 +229,7 @@ public final class AllureFileWriter {
     // ------------------------------------------------------------------ transforms
     private List<Map<String, Object>> labels(Map<String, Object> defMap,
                                              Map<String, Object> resMap,
-                                             String allureId) {
+                                             String allureId, String frameworkLabel) {
         List<Map<String, Object>> labels = new ArrayList<>();
         addLabel(labels, LABEL_TITLE, defMap.get("title"));
         addLabel(labels, LABEL_ID, defMap.get("external_id"));

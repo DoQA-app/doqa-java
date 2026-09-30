@@ -1,0 +1,22 @@
+file framework=junit-platform id=ALLURE-321 name=allureOnly() fullName=app.doqa.e2e.regression.KeysScenario.allureOnly
+file framework=junit-platform id=ALLURE-777 name=only() fullName=app.doqa.e2e.regression.ClassAllureScenario.only
+file framework=junit-platform id=CLASS-ID-1 name=first() fullName=app.doqa.e2e.regression.ClassIdScenario.first
+file framework=junit-platform id=CLASS-ID-1 name=second() fullName=app.doqa.e2e.regression.ClassIdScenario.second
+file framework=junit-platform id=DOQA-77 name=Transfer [DOQA-77] works fullName=app.doqa.e2e.regression.KeysScenario.idInDisplayName
+file framework=junit-platform id=DOQA-88 name=Alternative @DOQA:88 form fullName=app.doqa.e2e.regression.KeysScenario.idInDisplayNameAlt
+file framework=junit-platform id=EXPLICIT-1 name=explicitBeatsAllure() fullName=app.doqa.e2e.regression.KeysScenario.explicitBeatsAllure
+file framework=junit-platform id=PAY-EUR name=Pay 10 in EUR fullName=app.doqa.e2e.regression.KeysScenario.placeholders
+file framework=junit-platform id=PAY-USD name=Pay 20 in USD fullName=app.doqa.e2e.regression.KeysScenario.placeholders
+file framework=junit-platform id=RUNTIME-1 name=runtimeId() fullName=app.doqa.e2e.regression.KeysScenario.runtimeId
+file framework=junit-platform id=junit5:141c79e0f2d23b91db23bd962b62677759a1e9b3 name=failsAssertion() fullName=app.doqa.e2e.regression.KeysScenario.failsAssertion
+file framework=junit-platform id=junit5:2c542e242c63d7de9b5433432dd02fb95284a040 name=dyn one fullName=app.doqa.e2e.regression.KeysScenario.dynamic
+file framework=junit-platform id=junit5:6739faf829be9a36ad0b4cae0d3708250094935d name=assumptionSkips() fullName=app.doqa.e2e.regression.KeysScenario.assumptionSkips
+file framework=junit-platform id=junit5:820fc820cea3ce678b634934a9cf62ecf967a0ea name=breaks() fullName=app.doqa.e2e.regression.KeysScenario.breaks
+file framework=junit-platform id=junit5:8a2af7ac83786cc54d17ba35818ae5cefe0e57bb name=annotated() fullName=app.doqa.e2e.regression.KeysScenario.annotated
+file framework=junit-platform id=junit5:99c83b5fb15d4f6f916a91149792522fd1d01f1b name=customCoordinates() fullName=app.doqa.e2e.regression.KeysScenario.customCoordinates
+file framework=junit-platform id=junit5:a1960cacbf4f8a6e169a3c86e4e362df8b76eb34 name=[1] value=alpha fullName=app.doqa.e2e.regression.KeysScenario.collapsed
+file framework=junit-platform id=junit5:a1960cacbf4f8a6e169a3c86e4e362df8b76eb34 name=[2] value=beta fullName=app.doqa.e2e.regression.KeysScenario.collapsed
+file framework=junit-platform id=junit5:a2ceefeddf2a410ff257c3abe6411a30593b8e5a name=disabled() fullName=app.doqa.e2e.regression.KeysScenario.disabled
+file framework=junit-platform id=junit5:a4fa920be1adc6a5c8a938fd4542e3912cae4d58 name=plainHash() fullName=app.doqa.e2e.regression.KeysScenario.plainHash
+file framework=junit-platform id=junit5:a87c5be281c196d5f5e03f7b231143d9c41d683b name=nestedTest() fullName=app.doqa.e2e.regression.KeysScenario$Inner.nestedTest
+file framework=junit-platform id=junit5:aac0b16a19d374744fe66a2a58bebac51276412f name=dyn two fullName=app.doqa.e2e.regression.KeysScenario.dynamic

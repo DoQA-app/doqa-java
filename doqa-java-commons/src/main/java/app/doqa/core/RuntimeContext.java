@@ -27,6 +27,8 @@ public final class RuntimeContext {
     public String externalId;
     public String title;
     public String displayName;
+    /** Autotest-definition name when it differs from the result's (a template); null = same. */
+    public String definitionName;
     public String description;
     /** Runtime opt-in; ORed with the {@code @DoqaCreateManualCase} marker when the result is built. */
     public boolean createManualCase;

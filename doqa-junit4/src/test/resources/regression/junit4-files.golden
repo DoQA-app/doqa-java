@@ -1,0 +1,19 @@
+file framework=junit4 id=ALLURE-321 name=allureOnly fullName=app.doqa.e2e4.regression.KeysScenario.allureOnly
+file framework=junit4 id=ALLURE-777 name=only fullName=app.doqa.e2e4.regression.ClassAllureScenario.only
+file framework=junit4 id=CLASS-ID-1 name=first fullName=app.doqa.e2e4.regression.ClassIdScenario.first
+file framework=junit4 id=CLASS-ID-1 name=second fullName=app.doqa.e2e4.regression.ClassIdScenario.second
+file framework=junit4 id=DOQA-9 name=named[0: @DOQA:9 alpha] fullName=app.doqa.e2e4.regression.PlainParamScenario.named
+file framework=junit4 id=DOQA-9 name=named[1: @DOQA:9 beta] fullName=app.doqa.e2e4.regression.PlainParamScenario.named
+file framework=junit4 id=EXPLICIT-1 name=explicitBeatsAllure fullName=app.doqa.e2e4.regression.KeysScenario.explicitBeatsAllure
+file framework=junit4 id=PAY4-EUR name=Pay 10 in EUR fullName=app.doqa.e2e4.regression.ParamKeysScenario.placeholders
+file framework=junit4 id=PAY4-USD name=Pay 20 in USD fullName=app.doqa.e2e4.regression.ParamKeysScenario.placeholders
+file framework=junit4 id=RUNTIME-1 name=runtimeId fullName=app.doqa.e2e4.regression.KeysScenario.runtimeId
+file framework=junit4 id=junit4:0b293d6ea4150d63452ae7045ac66fd407ed9f58 name=customCoordinates fullName=app.doqa.e2e4.regression.KeysScenario.customCoordinates
+file framework=junit4 id=junit4:2ca9d4e5ead19ee868c5e292995371edad5d1d4a name=ignored fullName=app.doqa.e2e4.regression.KeysScenario.ignored
+file framework=junit4 id=junit4:335e2aba5684341469953e749b0b4ae07021cca6 name=assumptionSkips fullName=app.doqa.e2e4.regression.KeysScenario.assumptionSkips
+file framework=junit4 id=junit4:442ba4f3072606d69867239365f924e8d96ed9f7 name=Annotated display name fullName=app.doqa.e2e4.regression.KeysScenario.annotated
+file framework=junit4 id=junit4:751c726886933dbe4ab206dac9d274456b19f440 name=failsAssertion fullName=app.doqa.e2e4.regression.KeysScenario.failsAssertion
+file framework=junit4 id=junit4:ba037daa8c186fd5005e67afc72e6f50bb0c29a6 name=breaks fullName=app.doqa.e2e4.regression.KeysScenario.breaks
+file framework=junit4 id=junit4:d8cf575cea807a48160cfef5a9a3951aaeab9731 name=plainHash fullName=app.doqa.e2e4.regression.KeysScenario.plainHash
+file framework=junit4 id=junit4:fc17a3bcd2193cf157fbae6e83ac50334dc0ed95 name=collapsed[0: currency=EUR] fullName=app.doqa.e2e4.regression.ParamKeysScenario.collapsed
+file framework=junit4 id=junit4:fc17a3bcd2193cf157fbae6e83ac50334dc0ed95 name=collapsed[1: currency=USD] fullName=app.doqa.e2e4.regression.ParamKeysScenario.collapsed

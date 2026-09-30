@@ -14,8 +14,18 @@ public final class AdapterRuntime {
     private static volatile String framework = "jvm";
     private static volatile String frameworkLabel = "jvm";
     private static volatile Function<String, RuntimeException> skipSignal;
+    private static volatile boolean cucumberPluginCreated;
 
     private AdapterRuntime() {
+    }
+
+    /** Marks that the DoQA Cucumber plugin reports the scenarios, so runner adapters skip them. */
+    public static void markCucumberPluginCreated() {
+        cucumberPluginCreated = true;
+    }
+
+    public static boolean cucumberPluginCreated() {
+        return cucumberPluginCreated;
     }
 
     /**

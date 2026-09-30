@@ -108,7 +108,9 @@ public class DoqaRunListener extends RunListener {
                 failures.clear();
                 assumptions.clear();
                 currentClass = null;
+                CucumberSuites.reset();
             }
+            CucumberSuites.collect(description);
             // This event fires once per fork, not once per run - it starts no run of its own (the
             // session does that, idempotently), it only marks a state boundary.
             session();
@@ -122,6 +124,11 @@ public class DoqaRunListener extends RunListener {
     public void testSuiteStarted(Description description) {
         try {
             if (!active()) {
+                return;
+            }
+            // JUnit 4.12 and a lazily listed surefire run name no classes in testRunStarted
+            CucumberSuites.collect(description);
+            if (CucumberSuites.reportedByPlugin(description)) {
                 return;
             }
             Class<?> testClass = description.getTestClass();
@@ -147,7 +154,7 @@ public class DoqaRunListener extends RunListener {
     @Override
     public void testStarted(Description description) {
         try {
-            if (!active()) {
+            if (!active() || CucumberSuites.reportedByPlugin(description)) {
                 return;
             }
             TestRef ref = TestRefs.fromDescription(description);
@@ -175,7 +182,8 @@ public class DoqaRunListener extends RunListener {
     @Override
     public void testFailure(Failure failure) {
         try {
-            if (!active() || failure == null || failure.getDescription() == null) {
+            if (!active() || failure == null || failure.getDescription() == null
+                    || CucumberSuites.reportedByPlugin(failure.getDescription())) {
                 return;
             }
             Description description = failure.getDescription();
@@ -203,7 +211,8 @@ public class DoqaRunListener extends RunListener {
     @Override
     public void testAssumptionFailure(Failure failure) {
         try {
-            if (!active() || failure == null || failure.getDescription() == null) {
+            if (!active() || failure == null || failure.getDescription() == null
+                    || CucumberSuites.reportedByPlugin(failure.getDescription())) {
                 return;
             }
             Description description = failure.getDescription();
@@ -227,7 +236,7 @@ public class DoqaRunListener extends RunListener {
     @Override
     public void testIgnored(Description description) {
         try {
-            if (!active()) {
+            if (!active() || CucumberSuites.reportedByPlugin(description)) {
                 return;
             }
             String reason = ignoreReason(description);
@@ -254,7 +263,7 @@ public class DoqaRunListener extends RunListener {
     @Override
     public void testFinished(Description description) {
         try {
-            if (!active()) {
+            if (!active() || CucumberSuites.reportedByPlugin(description)) {
                 return;
             }
             String key = TestRefs.key(description);
@@ -287,7 +296,7 @@ public class DoqaRunListener extends RunListener {
     @Override
     public void testSuiteFinished(Description description) {
         try {
-            if (!active()) {
+            if (!active() || CucumberSuites.reportedByPlugin(description)) {
                 return;
             }
             Class<?> testClass = description.getTestClass();

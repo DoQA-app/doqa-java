@@ -82,7 +82,9 @@ public class DoqaMethodInterceptor implements IMethodInterceptor {
         List<IMethodInstance> deselected = new ArrayList<>();
         for (IMethodInstance instance : methods) {
             ITestNGMethod method = instance.getMethod();
-            if (method == null || PlanSelection.allows(TestRefs.fromMethod(method))) {
+            // a Cucumber runner method carries every scenario; the plugin selects among them
+            if (method == null || CucumberRunners.keepInSelection(method)
+                    || PlanSelection.allows(TestRefs.fromMethod(method))) {
                 keep.add(instance);
             } else {
                 deselected.add(instance);

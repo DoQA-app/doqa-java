@@ -12,7 +12,8 @@
     <name>DoQA Java</name>
     <description>
         DoQA reporting for JVM test frameworks: the Autotest API client core, the shared
-        framework-agnostic adapter core and the framework adapters (JUnit 5, JUnit 4, TestNG).
+        framework-agnostic adapter core and the framework adapters (JUnit 5, JUnit 4, TestNG,
+        Cucumber-JVM).
         All modules release together under one version.
     </description>
 
@@ -52,6 +53,7 @@
         <module>doqa-junit5</module>
         <module>doqa-junit4</module>
         <module>doqa-testng</module>
+        <module>doqa-cucumber</module>
     </modules>
 
     <properties>
@@ -63,6 +65,8 @@
         <junit4.version>4.13.2</junit4.version>
         <testng.version>7.12.0</testng.version>
         <aspectj.version>1.9.24</aspectj.version>
+        <!-- Cucumber of the adapters' tests that run unit tests and scenarios in one module. -->
+        <cucumber.version>7.0.0</cucumber.version>
     </properties>
 
     <build>
@@ -106,6 +110,27 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-dependency-plugin</artifactId>
                     <version>3.6.1</version>
+                </plugin>
+                <!-- Adapter modules compile the shared test kit (fake backend, payload snapshots)
+                     from commons into their own tests; it is never packaged or published. -->
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>build-helper-maven-plugin</artifactId>
+                    <version>3.6.0</version>
+                    <executions>
+                        <execution>
+                            <id>add-testkit</id>
+                            <phase>generate-test-sources</phase>
+                            <goals>
+                                <goal>add-test-source</goal>
+                            </goals>
+                            <configuration>
+                                <sources>
+                                    <source>${project.basedir}/../doqa-java-commons/src/testkit/java</source>
+                                </sources>
+                            </configuration>
+                        </execution>
+                    </executions>
                 </plugin>
             </plugins>
         </pluginManagement>

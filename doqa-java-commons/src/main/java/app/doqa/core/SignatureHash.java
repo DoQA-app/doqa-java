@@ -12,6 +12,7 @@ import java.security.NoSuchAlgorithmException;
  * (non-parameterized). Parameterized invocations collapse to the method-level key (args travel
  * in {@code parameters[]}). The display name is taken verbatim - names that differ only by an
  * index (dynamic tests {@code "[1] x"} / {@code "[2] x"}) stay distinct tests.
+ * Java method supplies its own signature ({@link TestRef.Builder#signature}), hashed as is.
  *
  * <p>Internal adapter API.
  */
@@ -64,7 +65,11 @@ public final class SignatureHash {
     }
 
     public static String fallbackExternalId(String stableSignature) {
-        return AdapterRuntime.framework() + ":" + sha1Hex(stableSignature);
+        return fallbackExternalId(AdapterRuntime.framework(), stableSignature);
+    }
+
+    public static String fallbackExternalId(String framework, String signature) {
+        return framework + ":" + sha1Hex(signature);
     }
 
     static String sha1Hex(String input) {

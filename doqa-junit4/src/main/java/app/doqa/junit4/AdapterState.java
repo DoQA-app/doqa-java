@@ -103,5 +103,6 @@ final class AdapterState {
         CLAIMED_NOTIFIERS.clear();
         RUN_ACTIVE.set(false);
         listenerActive = false;
+        CucumberSuites.reset();
     }
 }

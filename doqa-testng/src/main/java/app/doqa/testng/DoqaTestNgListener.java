@@ -187,6 +187,10 @@ public class DoqaTestNgListener implements ITestListener, ISuiteListener, IClass
             }
             // this thread's previous invocation is complete, teardown included: send it now
             Invocations.emitThread(Thread.currentThread(), sink);
+            if (CucumberRunners.reportedByPlugin(result.getMethod())) {
+                Fixtures.dropBufferedSetup(result.getMethod());
+                return;
+            }
             String key = TestRefs.key(result);
             RuntimeContext ctx = DoqaContexts.open(key);
             ctx.testRef = TestRefs.fromResult(result);
@@ -296,6 +300,9 @@ public class DoqaTestNgListener implements ITestListener, ISuiteListener, IClass
                 return;
             }
             ITestNGMethod configMethod = tr.getMethod();
+            if (CucumberRunners.isRunnerFixtureOfPlugin(configMethod)) {
+                return;
+            }
             Fixtures.Kind kind = Fixtures.kindOf(configMethod);
             if (kind == Fixtures.Kind.NONE) {
                 return;
@@ -317,6 +324,11 @@ public class DoqaTestNgListener implements ITestListener, ISuiteListener, IClass
     private void configurationFinished(ITestResult tr) {
         try {
             if (!active() || tr == null || !claim(tr, FINISHED_MARKER)) {
+                return;
+            }
+            if (CucumberRunners.isRunnerFixtureOfPlugin(tr.getMethod())) {
+                // setUpClass creates the plugins, so its fixture predates them: drop it
+                Fixtures.discard();
                 return;
             }
             Fixtures.finished(tr);
@@ -351,7 +363,8 @@ public class DoqaTestNgListener implements ITestListener, ISuiteListener, IClass
      */
     private void recordOutcome(ITestResult result) {
         try {
-            if (!active() || result == null) {
+            if (!active() || result == null
+                    || CucumberRunners.reportedByPlugin(result.getMethod())) {
                 return;
             }
             Throwable error = result.getThrowable();
@@ -396,7 +409,8 @@ public class DoqaTestNgListener implements ITestListener, ISuiteListener, IClass
             return;
         }
         for (ITestNGMethod method : excluded) {
-            if (method == null || !method.isTest() || method.getEnabled()) {
+            if (method == null || !method.isTest() || method.getEnabled()
+                    || CucumberRunners.reportedByPlugin(method)) {
                 continue;
             }
             TestRef ref = TestRefs.fromMethod(method);
@@ -529,7 +543,9 @@ public class DoqaTestNgListener implements ITestListener, ISuiteListener, IClass
                 || local.runContext.selectedExternalIds().isEmpty()) {
             return;
         }
-        if (REPORTED.isEmpty() && SELECTION_WARNED.compareAndSet(false, true)) {
+        // Cucumber scenarios are the plugin's to report, and it warns about its own selection
+        if (REPORTED.isEmpty() && !AdapterRuntime.cucumberPluginCreated()
+                && SELECTION_WARNED.compareAndSet(false, true)) {
             LOG.warning("DoQA: the run selects " + local.runContext.selectedExternalIds().size()
                     + " autotest(s), but none of them matched the discovered tests - nothing"
                     + " ran. The selected external ids are " + local.runContext.selectedExternalIds()

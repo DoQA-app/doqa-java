@@ -10,7 +10,25 @@ import app.doqa.client.DoqaConfig;
  */
 public final class Limits {
 
+    /** Server column limits: a longer value gets the whole batch rejected. */
+    public static final int MAX_EXTERNAL_ID = 255;
+    public static final int MAX_NAME = 255;
+    public static final int MAX_RUNNER_METHOD = 255;
+    public static final int MAX_STEP_TITLE = 500;
+
     private Limits() {
+    }
+
+    /** Cut to {@code max} chars ending with an ellipsis; never splits a surrogate pair. */
+    public static String clip(String s, int max) {
+        if (s == null || s.length() <= max) {
+            return s;
+        }
+        int end = max - 1;
+        if (end > 0 && Character.isHighSurrogate(s.charAt(end - 1))) {
+            end--;
+        }
+        return s.substring(0, end) + "…";
     }
 
     /** Truncate to {@code max} chars, appending a marker with the dropped size. */

@@ -25,6 +25,7 @@
 | JUnit 5 (Jupiter) | [`app.doqa:doqa-junit5`](doqa-junit5/README.md) |
 | JUnit 4 (4.13+) | [`app.doqa:doqa-junit4`](doqa-junit4/README.md) |
 | TestNG (7.4+) | [`app.doqa:doqa-testng`](doqa-testng/README.md) |
+| Cucumber-JVM (7.x, 8.x) на JUnit Platform, JUnit 4 и TestNG | [`app.doqa:doqa-cucumber`](doqa-cucumber/README.md) |
 
 Для всех адаптеров нужен JDK 11 или новее.
 
@@ -165,6 +166,7 @@ JUnit 5 и TestNG исключают остальные тесты до их в�
 | [`doqa-junit5`](doqa-junit5/README.md) | адаптер JUnit 5 |
 | [`doqa-junit4`](doqa-junit4/README.md) | адаптер JUnit 4: `RunListener` и необязательный `DoqaRunner` |
 | [`doqa-testng`](doqa-testng/README.md) | адаптер TestNG: listeners и интерцептор, которые TestNG подключает сам |
+| [`doqa-cucumber`](doqa-cucumber/README.md) | плагин Cucumber-JVM: сценарии с шагами Gherkin, теги DoQA, выборочный прогон на JUnit Platform |
 | [`doqa-java-commons`](doqa-java-commons/README.md) | общая часть адаптеров: фасад `Doqa`, аннотации `@Doqa*`, аспект `@Step`, вычисление идентификатора, сессия отправки |
 | [`doqa-client`](doqa-client/README.md) | клиент DoQA Autotest API и запись файлов; внешних зависимостей во время выполнения нет |
 

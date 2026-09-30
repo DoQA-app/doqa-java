@@ -198,6 +198,10 @@ final class Fixtures {
         record(pending);
     }
 
+    static void discard() {
+        unwind(PENDING.remove(Thread.currentThread()));
+    }
+
     /** Moves the setup nodes buffered on this thread into a starting test - the first moment they fit. */
     static void transferSetupSteps(RuntimeContext ctx, ITestNGMethod testMethod) {
         if (ctx == null) {

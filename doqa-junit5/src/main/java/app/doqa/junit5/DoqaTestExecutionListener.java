@@ -15,6 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.TestSource;
+import org.junit.platform.engine.UniqueId;
 import org.junit.platform.engine.support.descriptor.ClassSource;
 import org.junit.platform.engine.support.descriptor.MethodSource;
 import org.junit.platform.launcher.TestExecutionListener;
@@ -96,7 +97,7 @@ public class DoqaTestExecutionListener implements TestExecutionListener {
 
     @Override
     public void executionStarted(TestIdentifier id) {
-        if (!active() || !id.isTest()) {
+        if (!active() || !id.isTest() || reportedByCucumberPlugin(id)) {
             return;
         }
         RuntimeContext ctx = DoqaContexts.open(id.getUniqueId());
@@ -167,7 +168,7 @@ public class DoqaTestExecutionListener implements TestExecutionListener {
 
     // ------------------------------------------------------------------ reporting
     private void reportSkipped(TestIdentifier id, String reason) {
-        if (!markReported(id)) {
+        if (reportedByCucumberPlugin(id) || !markReported(id)) {
             return;
         }
         try {
@@ -182,7 +183,7 @@ public class DoqaTestExecutionListener implements TestExecutionListener {
     }
 
     private void reportFinishedTest(TestIdentifier id, TestExecutionResult result) {
-        if (!markReported(id)) {
+        if (reportedByCucumberPlugin(id) || !markReported(id)) {
             return;
         }
         try {
@@ -201,7 +202,7 @@ public class DoqaTestExecutionListener implements TestExecutionListener {
 
     /** Report a descendant test of a failed/aborted container (it never ran). */
     private void reportSyntheticFromContainer(TestIdentifier id, TestExecutionResult containerResult) {
-        if (!markReported(id)) {
+        if (reportedByCucumberPlugin(id) || !markReported(id)) {
             return;
         }
         try {
@@ -254,6 +255,18 @@ public class DoqaTestExecutionListener implements TestExecutionListener {
 
     private boolean active() {
         return session != null && session.enabled;
+    }
+
+    private static boolean reportedByCucumberPlugin(TestIdentifier id) {
+        if (!AdapterRuntime.cucumberPluginCreated()) {
+            return false;
+        }
+        for (UniqueId.Segment segment : UniqueId.parse(id.getUniqueId()).getSegments()) {
+            if ("engine".equals(segment.getType()) && "cucumber".equals(segment.getValue())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Native JUnit {@code @Tag}s join the DoQA tags - one tagging, both mechanics see it. */

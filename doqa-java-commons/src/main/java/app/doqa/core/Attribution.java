@@ -5,6 +5,14 @@ import app.doqa.annotations.DoqaId;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -24,8 +32,10 @@ import java.util.regex.Pattern;
  */
 public final class Attribution {
 
+    private static final Logger LOG = Logger.getLogger(Attribution.class.getName());
     public static final Pattern ID_IN_TITLE = Pattern.compile("(?:\\[|@)DOQA[-:](\\d+)\\]?");
     private static final String ALLURE_ID_ANNOTATION = "io.qameta.allure.AllureId";
+    private static final Set<String> WARNED_LONG_IDS = ConcurrentHashMap.newKeySet();
 
     private Attribution() {
     }
@@ -37,12 +47,32 @@ public final class Attribution {
         public final Source source;
         public final long[] caseIds;     // nullable
         public final String allureId;    // nullable
+        private final List<String> cascade;
 
-        Result(String externalId, Source source, long[] caseIds, String allureId) {
+        private Result(String externalId, Source source, long[] caseIds, String allureId,
+                       List<String> cascade) {
             this.externalId = externalId;
             this.source = source;
             this.caseIds = caseIds;
             this.allureId = allureId;
+            this.cascade = cascade;
+        }
+
+        /** The id the test reports under: runtime id first, then the cascade, placeholders substituted. */
+        public String externalId(String runtimeId, Map<String, String> params) {
+            List<String> ids = new ArrayList<>(cascade.size() + 1);
+            if (runtimeId != null) {
+                ids.add(runtimeId);
+            }
+            ids.addAll(cascade);
+            for (int i = 0; i < ids.size(); i++) {
+                String id = Placeholders.resolve(ids.get(i), params);
+                if (fits(id) || i == ids.size() - 1) {
+                    return id;
+                }
+                warnTooLong(id);
+            }
+            return null;
         }
     }
 
@@ -51,33 +81,93 @@ public final class Attribution {
         if (allureId == null) {
             allureId = readAllureId(ref.testClass);
         }
+        if (allureId == null) {
+            allureId = ref.allureId;
+        }
 
         long[] caseIds = readCaseIds(ref.testMethod);
         if (caseIds == null) {
             caseIds = readCaseIds(ref.testClass);
         }
+        caseIds = union(caseIds, ref.caseIds());
 
+        List<String> ids = new ArrayList<>(4);
+        List<Source> sources = new ArrayList<>(4);
         String explicit = readExternalId(ref.testMethod);
         if (explicit == null) {
             explicit = readExternalId(ref.testClass);
         }
+        if (explicit == null) {
+            explicit = ref.explicitId;
+        }
         if (explicit != null && !explicit.trim().isEmpty()) {
-            return new Result(explicit.trim(), Source.EXPLICIT_EXTERNAL_ID, caseIds, allureId);
+            ids.add(explicit.trim());
+            sources.add(Source.EXPLICIT_EXTERNAL_ID);
         }
 
-        String fromTitle = extractIdInTitle(ref.displayName);
+        String fromTitle = ref.titleId != null && !ref.titleId.trim().isEmpty()
+                ? ref.titleId.trim()
+                : extractIdInTitle(ref.displayName);
         if (fromTitle != null) {
-            return new Result(fromTitle, Source.ID_IN_TITLE, caseIds, allureId);
+            ids.add(fromTitle);
+            sources.add(Source.ID_IN_TITLE);
         }
 
         if (allureId != null && !allureId.trim().isEmpty()) {
-            return new Result("ALLURE-" + allureId.trim(), Source.NATIVE_ALLURE, caseIds, allureId);
+            ids.add("ALLURE-" + allureId.trim());
+            sources.add(Source.NATIVE_ALLURE);
         }
 
-        String signature = SignatureHash.stableSignature(
-                ref.fqcn, ref.methodName, ref.methodParamTypes, ref.displayName, ref.parameterized);
-        return new Result(SignatureHash.fallbackExternalId(signature),
-                Source.SIGNATURE_HASH, caseIds, allureId);
+        String signature = ref.signature != null
+                ? ref.signature
+                : SignatureHash.stableSignature(ref.fqcn, ref.methodName, ref.methodParamTypes,
+                        ref.displayName, ref.parameterized);
+        ids.add(SignatureHash.fallbackExternalId(ref.framework(), signature));
+        sources.add(Source.SIGNATURE_HASH);
+
+        // a template is judged once its placeholders are substituted (Result#externalId)
+        int chosen = 0;
+        while (chosen < ids.size() - 1 && !fits(ids.get(chosen))
+                && !Placeholders.hasPlaceholder(ids.get(chosen))) {
+            warnTooLong(ids.get(chosen));
+            chosen++;
+        }
+        return new Result(ids.get(chosen), sources.get(chosen), caseIds, allureId,
+                Collections.unmodifiableList(new ArrayList<>(ids.subList(chosen, ids.size()))));
+    }
+
+    private static boolean fits(String id) {
+        return id == null || id.length() <= Limits.MAX_EXTERNAL_ID;
+    }
+
+    private static void warnTooLong(String id) {
+        if (WARNED_LONG_IDS.add(id)) {
+            LOG.warning("DoQA: externalId \"" + Limits.clip(id, 80) + "\" is longer than "
+                    + Limits.MAX_EXTERNAL_ID + " characters and would be rejected by the server"
+                    + " - the next source of the id is used instead");
+        }
+    }
+
+    private static long[] union(long[] a, long[] b) {
+        if (b == null || b.length == 0) {
+            return a;
+        }
+        if (a == null || a.length == 0) {
+            return b;
+        }
+        Set<Long> seen = new LinkedHashSet<>();
+        for (long v : a) {
+            seen.add(v);
+        }
+        for (long v : b) {
+            seen.add(v);
+        }
+        long[] out = new long[seen.size()];
+        int i = 0;
+        for (Long v : seen) {
+            out[i++] = v;
+        }
+        return out;
     }
 
     public static String extractIdInTitle(String displayName) {

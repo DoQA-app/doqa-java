@@ -13,6 +13,8 @@ import java.util.List;
 public final class StepNode {
 
     public String title;
+    /** Title in the autotest definition when it differs from the executed one (a template). */
+    public String definitionTitle;
     public String description;
     public String outcome;       // passed | failed | skipped | broken
     public String message;

@@ -3,6 +3,7 @@ package app.doqa.core;
 import app.doqa.client.RunContext;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
@@ -108,14 +109,13 @@ public final class PlanSelection {
             if (plan == null || ctx == null) {
                 return true;
             }
-            String declared = ctx.externalId;
-            if (declared == null) {
-                if (ctx.testRef == null) {
-                    return true;
-                }
-                declared = Attribution.resolve(ctx.testRef).externalId;
+            if (ctx.externalId == null && ctx.testRef == null) {
+                return true;
             }
-            String externalId = Placeholders.resolve(declared, Placeholders.paramsOf(ctx));
+            Map<String, String> params = Placeholders.paramsOf(ctx);
+            String externalId = ctx.testRef == null
+                    ? Placeholders.resolve(ctx.externalId, params)
+                    : Attribution.resolve(ctx.testRef).externalId(ctx.externalId, params);
             if (externalId == null || Placeholders.hasPlaceholder(externalId)) {
                 return true;
             }

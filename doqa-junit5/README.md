@@ -104,19 +104,19 @@ upload-to-doqa:
 |---|---|---|---|
 | `reporting` | `DOQA_REPORTING` | `api` / `files` / `auto` / `off` | `auto` |
 | `resultsDir` | `DOQA_RESULTS_DIR` | каталог для файлов результатов | `results` |
-| `url` | `DOQA_URL` | адрес DoQA | — |
-| `token` | `DOQA_TOKEN` | токен проекта или персональный токен | — |
-| `spaceId` | `DOQA_SPACE_ID` | id пространства | — |
-| `configurationId` | `DOQA_CONFIGURATION_ID` | конфигурация прогона (браузер, ОС, окружение) | — |
-| `testRunId` | `DOQA_TEST_RUN_ID` | существующий прогон (нужен для режимов 0 и 1) | — |
-| `testRunName` | `DOQA_TEST_RUN_NAME` | имя создаваемого прогона (режим 2) | — |
+| `url` | `DOQA_URL` | адрес DoQA | нет |
+| `token` | `DOQA_TOKEN` | токен проекта или персональный токен | нет |
+| `spaceId` | `DOQA_SPACE_ID` | id пространства | нет |
+| `configurationId` | `DOQA_CONFIGURATION_ID` | конфигурация прогона (браузер, ОС, окружение) | нет |
+| `testRunId` | `DOQA_TEST_RUN_ID` | существующий прогон (нужен для режимов 0 и 1) | нет |
+| `testRunName` | `DOQA_TEST_RUN_NAME` | имя создаваемого прогона (режим 2) | нет |
 | `adapterMode` | `DOQA_ADAPTER_MODE` | режим выбора прогона: `0`/`selective`, `1`/`existing`, `2`/`new` ([см. ниже](#режимы-прогона)) | `2` |
-| `importRealtime` | `DOQA_IMPORT_REALTIME` | `true` — отправлять результаты по ходу прогона: пакет на каждый завершённый класс вместе с его `@AfterAll` | `false` (один пакет в конце) |
-| `certValidation` | `DOQA_CERT_VALIDATION` | `false` — не проверять TLS-сертификат и имя хоста (для самоподписанных сертификатов) | `true` |
-| `proxy` | `DOQA_PROXY` | HTTP-прокси, `host:port` | — |
-| `environment` | `DOQA_ENVIRONMENT` | метка окружения прогона (матрица окружений DoQA) | — |
+| `importRealtime` | `DOQA_IMPORT_REALTIME` | `true`: отправлять результаты по ходу прогона: пакет на каждый завершённый класс вместе с его `@AfterAll` | `false` (один пакет в конце) |
+| `certValidation` | `DOQA_CERT_VALIDATION` | `false`: не проверять TLS-сертификат и имя хоста (для самоподписанных сертификатов) | `true` |
+| `proxy` | `DOQA_PROXY` | HTTP-прокси, `host:port` | нет |
+| `environment` | `DOQA_ENVIRONMENT` | метка окружения прогона (матрица окружений DoQA) | нет |
 | `pipelineId` | `DOQA_PIPELINE_ID` | пайплайн CI, к которому привязывается прогон | `CI_PIPELINE_ID` / `GITHUB_RUN_ID` |
-| `ciRunId` | `DOQA_CI_RUN_ID` | id запуска CI, который инициировал DoQA; DoQA передаёт его в пайплайн, адаптер возвращает с результатами | — |
+| `ciRunId` | `DOQA_CI_RUN_ID` | id запуска CI, который инициировал DoQA; DoQA передаёт его в пайплайн, адаптер возвращает с результатами | нет |
 | `branch` | `DOQA_BRANCH` | ветка прогона | `CI_COMMIT_REF_NAME` / `GITHUB_REF_NAME` |
 | `batchSize` | `DOQA_BATCH_SIZE` | максимальное число результатов в одном запросе | `100` |
 | `requestTimeoutMs` | `DOQA_REQUEST_TIMEOUT_MS` | таймаут HTTP-запроса, мс | `30000` |
@@ -198,7 +198,7 @@ class LoginTests {
 
 Ещё две аннотации задают место теста в дереве DoQA: `@DoqaNamespace` (по умолчанию пакет) и
 `@DoqaClassName` (по умолчанию простое имя класса). Обе работают и на уровне класса. Аннотации
-находятся в пакете `app.doqa.annotations`, фасад — `app.doqa.Doqa`. Они общие для всех
+находятся в пакете `app.doqa.annotations`, фасад в `app.doqa.Doqa`. Они общие для всех
 JVM-адаптеров DoQA (`doqa-java-commons`), поэтому при смене фреймворка импорты менять не нужно.
 
 `@DoqaCreateManualCase` запрашивает создание ручного тест-кейса для автотеста, у которого нет
@@ -370,6 +370,19 @@ DoQA по-разному обрабатывает `failed` и `broken` при к
 
 ---
 
+## Сценарии Cucumber в том же модуле
+
+Сценарии движка `cucumber` (`cucumber-junit-platform-engine`) адаптер отправляет как обычные тесты:
+идентификатор строится по отображаемому имени сценария, шагов Gherkin нет. Чтобы передавать
+сценарии полноценно, подключите [`doqa-cucumber`](../doqa-cucumber/README.md) и пропишите его плагин в
+`cucumber.plugin`. Как только плагин создан, адаптер пропускает узлы движка `cucumber`: каждый
+сценарий уходит один раз, от плагина, с идентификатором `cucumber:…`. Тесты JUnit 5 сохраняют
+прежние идентификаторы `junit5:…`, сессия и прогон DoQA у них с плагином общие. Если модуль
+подключён, а строки `cucumber.plugin` нет, сценарии по-прежнему отправляет этот адаптер, а в журнале
+появляется предупреждение с нужной строкой.
+
+---
+
 ## Устранение неполадок
 
 | Симптом | Причина и решение |
@@ -391,10 +404,10 @@ DoQA по-разному обрабатывает `failed` и `broken` при к
 
 Адаптер читает разметку Allure без зависимости от Allure:
 
-- `@AllureId` — идентификатор `ALLURE-<id>`;
-- `@Epic`, `@Feature`, `@Story`, `@Owner`, `@Severity` — метки `key:value`;
-- `@Link`, а также `@Issue` и `@TmsLink` со значением-URL — ссылки с типом;
-- `@Description` — описание.
+- `@AllureId`: идентификатор `ALLURE-<id>`;
+- `@Epic`, `@Feature`, `@Story`, `@Owner`, `@Severity`: метки `key:value`;
+- `@Link`, а также `@Issue` и `@TmsLink` со значением-URL: ссылки с типом;
+- `@Description`: описание.
 
 `@AllureId` также связывает автотест с ручным тест-кейсом DoQA с этим id: в файловом режиме через
 метку `AS_ID`, при отправке через API напрямую. Поэтому привязка к кейсам сохраняется без правок.

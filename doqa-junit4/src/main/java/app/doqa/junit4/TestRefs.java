@@ -34,8 +34,10 @@ import org.junit.runners.Parameterized;
  */
 final class TestRefs {
 
+    static final String FRAMEWORK = "junit4";
+
     static {
-        AdapterRuntime.configure("junit4", "junit4");
+        AdapterRuntime.configure(FRAMEWORK, FRAMEWORK);
     }
 
     /** {@code "0: value=alpha"} - the default {@code @Parameters} name is the index alone. */
@@ -66,11 +68,11 @@ final class TestRefs {
         String rawMethod = description.getMethodName();
         if (rawMethod == null) {
             // class-level description (@Ignore on the class, a failing @BeforeClass)
-            return new TestRef(fqcn, null, null, simpleName(fqcn), false, testClass, null);
+            return ref(fqcn, null, null, simpleName(fqcn), false, testClass, null);
         }
         String methodName = cleanMethodName(rawMethod);
         Method method = Reflections.findMethod(testClass, methodName);
-        return new TestRef(fqcn, methodName, SignatureHash.parameterTypes(method), rawMethod,
+        return ref(fqcn, methodName, SignatureHash.parameterTypes(method), rawMethod,
                 invocationSuffix(rawMethod) != null, testClass, method);
     }
 
@@ -80,9 +82,19 @@ final class TestRefs {
      * marked parameterized so the synthesized identity matches a real invocation's.
      */
     static TestRef fromMethod(Class<?> testClass, Method method) {
-        return new TestRef(testClass.getName(), method.getName(),
+        return ref(testClass.getName(), method.getName(),
                 SignatureHash.parameterTypes(method), method.getName(), isParameterized(testClass),
                 testClass, method);
+    }
+
+    private static TestRef ref(String fqcn, String methodName, String paramTypes,
+                               String displayName, boolean parameterized, Class<?> testClass,
+                               Method testMethod) {
+        return new TestRef.Builder().fqcn(fqcn).methodName(methodName)
+                .methodParamTypes(paramTypes).displayName(displayName).parameterized(parameterized)
+                .testClass(testClass).testMethod(testMethod)
+                .framework(FRAMEWORK, FRAMEWORK)
+                .build();
     }
 
     /** {@code alwaysPasses[0: value=alpha]} &rarr; {@code alwaysPasses}. */

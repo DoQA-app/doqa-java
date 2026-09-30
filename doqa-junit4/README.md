@@ -8,7 +8,7 @@ Allure-совместимого формата, которые загружаю�
 Ошибки отправки не останавливают тесты и не меняют результат сборки: адаптер пишет WARNING в лог и
 продолжает работу.
 
-Минимальная поддерживаемая версия — **JUnit 4.13**; адаптер собирается и тестируется с 4.13.2.
+Минимальная поддерживаемая версия: **JUnit 4.13**; адаптер собирается и тестируется с 4.13.2.
 Требуется JDK 11 или новее. Для JUnit 5 используйте [`doqa-junit5`](../doqa-junit5/README.md).
 
 ---
@@ -168,19 +168,19 @@ upload-to-doqa:
 |---|---|---|---|
 | `reporting` | `DOQA_REPORTING` | `api` / `files` / `auto` / `off` | `auto` |
 | `resultsDir` | `DOQA_RESULTS_DIR` | каталог для файлов результатов | `results` |
-| `url` | `DOQA_URL` | адрес DoQA | — |
-| `token` | `DOQA_TOKEN` | токен проекта или персональный токен (другое имя переменной: `DOQA_PRIVATE_TOKEN`) | — |
-| `spaceId` | `DOQA_SPACE_ID` | id пространства (другое имя переменной: `DOQA_PROJECT_ID`) | — |
-| `configurationId` | `DOQA_CONFIGURATION_ID` | конфигурация прогона (браузер, ОС, окружение) | — |
-| `testRunId` | `DOQA_TEST_RUN_ID` | существующий прогон (нужен для режимов 0 и 1) | — |
-| `testRunName` | `DOQA_TEST_RUN_NAME` | имя создаваемого прогона (режим 2) | — |
+| `url` | `DOQA_URL` | адрес DoQA | нет |
+| `token` | `DOQA_TOKEN` | токен проекта или персональный токен (другое имя переменной: `DOQA_PRIVATE_TOKEN`) | нет |
+| `spaceId` | `DOQA_SPACE_ID` | id пространства (другое имя переменной: `DOQA_PROJECT_ID`) | нет |
+| `configurationId` | `DOQA_CONFIGURATION_ID` | конфигурация прогона (браузер, ОС, окружение) | нет |
+| `testRunId` | `DOQA_TEST_RUN_ID` | существующий прогон (нужен для режимов 0 и 1) | нет |
+| `testRunName` | `DOQA_TEST_RUN_NAME` | имя создаваемого прогона (режим 2) | нет |
 | `adapterMode` | `DOQA_ADAPTER_MODE` | режим выбора прогона: `0`/`selective`, `1`/`existing`, `2`/`new` ([см. ниже](#режимы-прогона)) | `2` |
-| `importRealtime` | `DOQA_IMPORT_REALTIME` | `true` — отправлять результаты по ходу прогона: пакет на каждый завершённый класс вместе с его `@AfterClass` | `false` (один пакет в конце) |
-| `certValidation` | `DOQA_CERT_VALIDATION` | `false` — не проверять TLS-сертификат и имя хоста (для самоподписанных сертификатов) | `true` |
-| `proxy` | `DOQA_PROXY` | HTTP-прокси, `host:port` | — |
-| `environment` | `DOQA_ENVIRONMENT` | метка окружения прогона (матрица окружений DoQA) | — |
+| `importRealtime` | `DOQA_IMPORT_REALTIME` | `true`: отправлять результаты по ходу прогона: пакет на каждый завершённый класс вместе с его `@AfterClass` | `false` (один пакет в конце) |
+| `certValidation` | `DOQA_CERT_VALIDATION` | `false`: не проверять TLS-сертификат и имя хоста (для самоподписанных сертификатов) | `true` |
+| `proxy` | `DOQA_PROXY` | HTTP-прокси, `host:port` | нет |
+| `environment` | `DOQA_ENVIRONMENT` | метка окружения прогона (матрица окружений DoQA) | нет |
 | `pipelineId` | `DOQA_PIPELINE_ID` | пайплайн CI, к которому привязывается прогон | `CI_PIPELINE_ID` / `GITHUB_RUN_ID` |
-| `ciRunId` | `DOQA_CI_RUN_ID` | id запуска CI, который инициировал DoQA; DoQA передаёт его в пайплайн, адаптер возвращает с результатами | — |
+| `ciRunId` | `DOQA_CI_RUN_ID` | id запуска CI, который инициировал DoQA; DoQA передаёт его в пайплайн, адаптер возвращает с результатами | нет |
 | `branch` | `DOQA_BRANCH` | ветка прогона | `CI_COMMIT_REF_NAME` / `GITHUB_REF_NAME` |
 | `batchSize` | `DOQA_BATCH_SIZE` | максимальное число результатов в одном запросе | `100` |
 | `requestTimeoutMs` | `DOQA_REQUEST_TIMEOUT_MS` | таймаут HTTP-запроса, мс | `30000` |
@@ -350,7 +350,7 @@ public class LoginTest {
 }
 ```
 
-Имена параметров берутся из полей `@Parameterized.Parameter`, а при передаче через конструктор — из
+Имена параметров берутся из полей `@Parameterized.Parameter`, а при передаче через конструктор из
 имён его аргументов. Для этого проект должен компилироваться с флагом `-parameters`
 (в maven-compiler-plugin это `<configuration><parameters>true</parameters></configuration>`).
 Иначе параметры будут называться `arg0..argN`.
@@ -480,7 +480,7 @@ test {
 | Тест прошёл (в том числе `@Test(expected = …)`, который выбросил ожидаемое исключение) | `passed` |
 | Не выполнилась проверка (`AssertionError`, `ComparisonFailure`, AssertJ, opentest4j) | `failed` |
 | Любое другое исключение (ошибка инфраструктуры, NPE, таймаут) | `broken` |
-| `@Ignore` на методе или на классе | `skipped`, причина — текст `@Ignore` |
+| `@Ignore` на методе или на классе | `skipped`, причина: текст `@Ignore` |
 | Невыполненное `Assume` (в тесте, в `@Before`, в `@BeforeClass`) | `skipped` |
 | Упал `@BeforeClass` или `@ClassRule` | результат для каждого теста класса; ошибка также записывается в узел `@BeforeClass` |
 
@@ -490,6 +490,19 @@ DoQA по-разному обрабатывает `failed` и `broken` при к
 В JUnit 4 **один тест может упасть дважды**: в теле и в `@After`. JUnit присылает событие на каждую
 ошибку, а адаптер объединяет их в **один** результат: сообщения и stack trace склеиваются. Исход
 `broken`, если хотя бы одна ошибка не относится к проверкам, иначе `failed`.
+
+---
+
+## Сценарии Cucumber в том же модуле
+
+Сценарии раннера `@RunWith(Cucumber.class)` (`cucumber-junit`) адаптер отправляет как обычные тесты:
+вместо класса имя фичи, теги и шаги Gherkin теряются. Чтобы передавать сценарии полноценно,
+подключите [`doqa-cucumber`](../doqa-cucumber/README.md) и добавьте его плагин в `@CucumberOptions(plugin = …)`
+или в переменную `CUCUMBER_PLUGIN`. Как только плагин создан, адаптер пропускает всё, что находится
+под классом с `@RunWith(Cucumber.class)`: каждый сценарий уходит один раз, от плагина, с
+идентификатором `cucumber:…`. Тесты JUnit 4 сохраняют прежние идентификаторы `junit4:…`, сессия и
+прогон DoQA у них с плагином общие. Без строки плагина сценарии по-прежнему отправляет этот
+адаптер.
 
 ---
 
@@ -531,7 +544,7 @@ DoQA по-разному обрабатывает `failed` и `broken` при к
 
 | Симптом | Причина и решение |
 |---|---|
-| Результатов нет, в логе нет ни одной строки от DoQA | **чаще всего** не зарегистрирован listener. Для Maven нужна настройка surefire `listener` (см. [Быстрый старт](#быстрый-старт), шаг 2), для Gradle и IDE — `@RunWith(DoqaRunner.class)` |
+| Результатов нет, в логе нет ни одной строки от DoQA | **чаще всего** не зарегистрирован listener. Для Maven нужна настройка surefire `listener` (см. [Быстрый старт](#быстрый-старт), шаг 2), для Gradle и IDE нужен `@RunWith(DoqaRunner.class)` |
 | `Tests run: 0` при успешной сборке после появления `junit-jupiter` в test classpath | surefire переключился на `JUnitPlatformProvider` и больше не находит классы JUnit 4. Уберите jupiter из тестовых зависимостей или добавьте `junit-vintage-engine` и запускайте тесты через JUnit Platform |
 | Результаты в `results/`, а ожидались в DoQA | режим `auto` без настроек API, в логе есть WARNING «no reporting configuration found (missing …)». Задайте `url`, `token` и `spaceId`. Если файловый режим нужен, задайте `reporting=files`, и предупреждение пропадёт |
 | DoQA недоступен или отклонил токен, в `results/` появились файлы | адаптер перешёл в файловый режим (в логе WARNING «could not establish the test run» или «results chunk failed»). Загрузите `results/` джобой загрузки, как в файловом режиме |

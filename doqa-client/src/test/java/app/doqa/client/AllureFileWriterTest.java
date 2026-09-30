@@ -141,6 +141,23 @@ class AllureFileWriterTest {
     }
 
     @Test
+    void frameworkLabelCanBeSetPerResult() throws IOException {
+        AllureFileWriter writer = new AllureFileWriter(tmp, "junit-platform");
+        writer.write(new AutotestDef("X-3", "t"),
+                new AutotestResult("X-3", Outcome.PASSED).name("t"), null, null, "cucumber");
+        writer.write(new AutotestDef("X-4", "t"),
+                new AutotestResult("X-4", Outcome.PASSED).name("t"), null, null, null);
+        Map<String, String> byId = new java.util.HashMap<>();
+        for (Path p : list("-result.json")) {
+            Map<String, String> labels = labelMap(
+                    Json.parseObject(new String(Files.readAllBytes(p))).get("labels"));
+            byId.put(labels.get("doqa_id"), labels.get("framework"));
+        }
+        assertEquals("cucumber", byId.get("X-3"));
+        assertEquals("junit-platform", byId.get("X-4"), "null keeps the writer's label");
+    }
+
+    @Test
     void storesInMemoryAttachmentWithExplicitType() throws IOException {
         AllureFileWriter writer = new AllureFileWriter(tmp, "junit-platform");
         String source = writer.storeAttachment("api-log.txt", "hello".getBytes(), null);
