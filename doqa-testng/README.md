@@ -23,13 +23,13 @@ Allure-совместимого формата, которые загружаю�
 <dependency>
   <groupId>app.doqa</groupId>
   <artifactId>doqa-testng</artifactId>
-  <version>0.1.5</version>
+  <version>0.1.8</version>
   <scope>test</scope>
 </dependency>
 ```
 
 ```groovy
-testImplementation("app.doqa:doqa-testng:0.1.5")   // Gradle
+testImplementation("app.doqa:doqa-testng:0.1.8")   // Gradle
 ```
 
 Все модули монорепозитория выпускаются с одной версией; актуальная указана в

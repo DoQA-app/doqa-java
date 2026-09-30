@@ -18,7 +18,7 @@ Allure-совместимого формата. На нём работают а�
 <dependency>
     <groupId>app.doqa</groupId>
     <artifactId>doqa-client</artifactId>
-    <version>0.1.1</version>
+    <version>0.1.8</version>
 </dependency>
 ```
 

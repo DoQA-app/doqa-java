@@ -20,7 +20,7 @@ Allure-совместимого формата, которые загружаю�
 <dependency>
   <groupId>app.doqa</groupId>
   <artifactId>doqa-junit5</artifactId>
-  <version>0.1.1</version>
+  <version>0.1.8</version>
   <scope>test</scope>
 </dependency>
 ```

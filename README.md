@@ -37,13 +37,13 @@
 <dependency>
   <groupId>app.doqa</groupId>
   <artifactId>doqa-junit5</artifactId>
-  <version>0.1.5</version>
+  <version>0.1.8</version>
   <scope>test</scope>
 </dependency>
 ```
 
 ```groovy
-testImplementation("app.doqa:doqa-junit5:0.1.5")   // Gradle
+testImplementation("app.doqa:doqa-junit5:0.1.8")   // Gradle
 ```
 
 Адаптер JUnit 5 подключается сам: JUnit Platform находит его listener через `ServiceLoader`. Чтобы
