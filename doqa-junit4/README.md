@@ -21,13 +21,13 @@ Allure-совместимого формата, которые загружаю�
 <dependency>
   <groupId>app.doqa</groupId>
   <artifactId>doqa-junit4</artifactId>
-  <version>0.1.8</version>
+  <version>0.1.9</version>
   <scope>test</scope>
 </dependency>
 ```
 
 ```groovy
-testImplementation("app.doqa:doqa-junit4:0.1.8")   // Gradle
+testImplementation("app.doqa:doqa-junit4:0.1.9")   // Gradle
 ```
 
 Все модули монорепозитория выпускаются с одной версией; актуальная указана в
@@ -179,8 +179,10 @@ upload-to-doqa:
 | `certValidation` | `DOQA_CERT_VALIDATION` | `false`: не проверять TLS-сертификат и имя хоста (для самоподписанных сертификатов) | `true` |
 | `proxy` | `DOQA_PROXY` | HTTP-прокси, `host:port` | нет |
 | `environment` | `DOQA_ENVIRONMENT` | метка окружения прогона (матрица окружений DoQA) | нет |
-| `pipelineId` | `DOQA_PIPELINE_ID` | пайплайн CI, к которому привязывается прогон | `CI_PIPELINE_ID` / `GITHUB_RUN_ID` |
+| `pipelineId` | `DOQA_PIPELINE_ID` | пайплайн CI, к которому привязывается прогон | из переменных GitLab, GitHub Actions, Jenkins, TeamCity |
 | `ciRunId` | `DOQA_CI_RUN_ID` | id запуска CI, который инициировал DoQA; DoQA передаёт его в пайплайн, адаптер возвращает с результатами | нет |
+| `sourceKey` | `DOQA_SOURCE_KEY` | CI-подключение пространства, к которому относится пайплайн; DoQA передаёт его в пайплайн | нет |
+| `correlationId` | `DOQA_CORRELATION_ID` | связь с запуском, который DoQA поставил в очередь CI; DoQA передаёт его в пайплайн | нет |
 | `branch` | `DOQA_BRANCH` | ветка прогона | `CI_COMMIT_REF_NAME` / `GITHUB_REF_NAME` |
 | `batchSize` | `DOQA_BATCH_SIZE` | максимальное число результатов в одном запросе | `100` |
 | `requestTimeoutMs` | `DOQA_REQUEST_TIMEOUT_MS` | таймаут HTTP-запроса, мс | `30000` |

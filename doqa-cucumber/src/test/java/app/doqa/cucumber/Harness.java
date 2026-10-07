@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.junit.platform.commons.JUnitException;
 import org.junit.platform.engine.DiscoverySelector;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
@@ -122,6 +123,17 @@ final class Harness implements AutoCloseable {
                 .configurationParameter("cucumber.plugin", PLUGIN);
         config.forEach(builder::configurationParameter);
         return run(builder.build());
+    }
+
+    // cucumber-junit-platform-engine 7.0 fails discovery on a classpath resource with a space
+    static boolean platformResolves(DiscoverySelector selector) {
+        try {
+            LauncherFactory.create().discover(LauncherDiscoveryRequestBuilder.request().selectors(selector)
+                    .configurationParameter("cucumber.glue", GLUE).build());
+            return true;
+        } catch (JUnitException e) {
+            return false;
+        }
     }
 
     static TestExecutionSummary run(LauncherDiscoveryRequest request) {

@@ -214,6 +214,135 @@ class ClientContractTest {
     }
 
     @Test
+    void jenkinsUsesCanonicalNestedJobAndBuildNumber() {
+        Map<String, String> env = new LinkedHashMap<>();
+        env.put("JOB_NAME", "folder/nested/tests");
+        env.put("BUILD_NUMBER", "83");
+        DoqaConfig c = ConfigResolver.resolve(new Properties(), env, null);
+        assertEquals("folder/job/nested/job/tests#83", c.pipelineId());
+        env.put("JOB_NAME", "folder/job/nested/job/tests");
+        assertEquals(c.pipelineId(), ConfigResolver.resolve(new Properties(), env, null).pipelineId());
+        env.remove("JOB_NAME");
+        assertNull(ConfigResolver.resolve(new Properties(), env, null).pipelineId(),
+                "BUILD_NUMBER alone is not a globally unique pipeline identity");
+    }
+
+    @Test
+    void pipelinePriorityAndExplicitEmptyArePreservedAcrossProviders() {
+        Map<String, String> env = new LinkedHashMap<>();
+        env.put("DOQA_PIPELINE_ID", "explicit");
+        env.put("CI_PIPELINE_ID", "gitlab");
+        env.put("GITHUB_RUN_ID", "github");
+        env.put("JOB_NAME", "tests");
+        env.put("BUILD_NUMBER", "83");
+        env.put("TEAMCITY_BUILD_ID", "1042");
+        Properties sys = new Properties();
+        assertEquals("explicit", ConfigResolver.resolve(sys, env, null).pipelineId());
+        env.remove("DOQA_PIPELINE_ID");
+        assertEquals("gitlab", ConfigResolver.resolve(sys, env, null).pipelineId());
+        env.remove("CI_PIPELINE_ID");
+        assertEquals("github", ConfigResolver.resolve(sys, env, null).pipelineId());
+        env.remove("GITHUB_RUN_ID");
+        assertEquals("tests#83", ConfigResolver.resolve(sys, env, null).pipelineId());
+        sys.setProperty("doqa.pipelineId", "cli");
+        assertEquals("cli", ConfigResolver.resolve(sys, env, null).pipelineId());
+        sys.setProperty("doqa.pipelineId", "");
+        assertNull(ConfigResolver.resolve(sys, env, null).pipelineId());
+        sys.clear();
+        env.put("DOQA_PIPELINE_ID", "${DOQA_PIPELINE_ID}");
+        assertNull(ConfigResolver.resolve(sys, env, null).pipelineId(),
+                "a broken explicit pipeline id must not fall through to another provider");
+    }
+
+    @Test
+    void teamCityReadsInternalIdFromPropertiesRatherThanBuildNumber(@TempDir java.nio.file.Path dir)
+            throws Exception {
+        java.nio.file.Path file = dir.resolve("teamcity.properties");
+        java.nio.file.Files.writeString(file,
+                "teamcity.build.id=1042\nbuild.number=release-8.3\nteamcity.buildType.id=Tests\n");
+        Map<String, String> env = new LinkedHashMap<>();
+        env.put("TEAMCITY_BUILD_PROPERTIES_FILE", file.toString());
+        env.put("BUILD_NUMBER", "83");
+        env.put("TEAMCITY_BUILDCONF_NAME", "Tests");
+        assertEquals("1042", ConfigResolver.resolve(new Properties(), env, null).pipelineId());
+        java.nio.file.Files.writeString(file, "build.id=1043\nbuild.number=83\n");
+        assertEquals("1043", ConfigResolver.resolve(new Properties(), env, null).pipelineId());
+        java.nio.file.Files.writeString(file, "build.number=83\nteamcity.buildType.id=Tests\n");
+        assertNull(ConfigResolver.resolve(new Properties(), env, null).pipelineId());
+        env.put("TEAMCITY_BUILD_ID", "1044");
+        assertEquals("1044", ConfigResolver.resolve(new Properties(), env, null).pipelineId());
+        env.put("TEAMCITY_BUILD_ID", "release-8.3");
+        assertNull(ConfigResolver.resolve(new Properties(), env, null).pipelineId());
+        env.put("TEAMCITY_BUILD_PROPERTIES_FILE", dir.resolve("missing").toString());
+        assertNull(ConfigResolver.resolve(new Properties(), env, null).pipelineId());
+    }
+
+    @Test
+    void teamCityNativeSystemPropertyIsAvailableWithoutEnvironment() {
+        Properties sys = new Properties();
+        sys.setProperty("teamcity.build.id", "1042");
+        assertEquals("1042", ConfigResolver.resolve(sys, null, null).pipelineId());
+        sys.setProperty("doqa.pipelineId", "");
+        assertNull(ConfigResolver.resolve(sys, null, null).pipelineId());
+    }
+
+    @Test
+    void sourceAndCorrelationRespectAllConfigLayersAndExplicitClears(@TempDir java.nio.file.Path dir)
+            throws Exception {
+        java.nio.file.Path file = dir.resolve("doqa.properties");
+        java.nio.file.Files.writeString(file, "source_key=file-source\ncorrelation-id=file-correlation\n");
+        Properties sys = new Properties();
+        Map<String, String> env = new LinkedHashMap<>();
+        DoqaConfig c = ConfigResolver.resolve(sys, env, file);
+        assertEquals("file-source", c.sourceKey());
+        assertEquals("file-correlation", c.correlationId());
+        env.put("DOQA_SOURCE_KEY", "env-source");
+        env.put("DOQA_CORRELATION_ID", "env-correlation");
+        c = ConfigResolver.resolve(sys, env, file);
+        assertEquals("env-source", c.sourceKey());
+        assertEquals("env-correlation", c.correlationId());
+        sys.setProperty("doqa.sourceKey", "cli-source");
+        sys.setProperty("doqa.correlationId", "cli-correlation");
+        c = ConfigResolver.resolve(sys, env, file);
+        assertEquals("cli-source", c.sourceKey());
+        assertEquals("cli-correlation", c.correlationId());
+        sys.setProperty("doqa.sourceKey", "");
+        sys.setProperty("doqa.correlationId", "");
+        c = ConfigResolver.resolve(sys, env, file);
+        assertNull(c.sourceKey());
+        assertNull(c.correlationId());
+    }
+
+    @Test
+    void ciContextTravelsInCreatePlanAndResultsRequests() {
+        FakeTransport t = new FakeTransport();
+        DoqaConfig c = new DoqaConfig.Builder().url("https://x/").token("T").spaceId("S")
+                .pipelineId("folder/job/tests#83").ciRunId("77")
+                .sourceKey("java tests").correlationId("queue#123").build();
+        ApiClient client = new ApiClient(c, t, 3, 0);
+        client.createTestRun("n", null, "external-key");
+        Map<String, Object> created = Json.parseObject(t.lastBody);
+        assertEquals("folder/job/tests#83", created.get("pipeline_id"));
+        assertEquals("java tests", created.get("source_key"));
+        assertFalse(created.containsKey("ci_run_id"));
+        assertFalse(created.containsKey("correlation_id"));
+        client.getRunAutotests("RUN-42", null);
+        assertTrue(t.lastUrl.contains("ciRunId=77"), t.lastUrl);
+        assertTrue(t.lastUrl.contains("pipeline_id=folder%2Fjob%2Ftests%2383"), t.lastUrl);
+        assertTrue(t.lastUrl.contains("source_key=java+tests"), t.lastUrl);
+        assertTrue(t.lastUrl.contains("correlation_id=queue%23123"), t.lastUrl);
+        client.uploadResults("RUN-42", null, List.of(new AutotestResult("E-1", Outcome.PASSED)));
+        assertCiContext(Json.parseObject(t.lastBody));
+    }
+
+    private static void assertCiContext(Map<String, Object> body) {
+        assertEquals("folder/job/tests#83", body.get("pipeline_id"));
+        assertEquals("77", body.get("ci_run_id"));
+        assertEquals("java tests", body.get("source_key"));
+        assertEquals("queue#123", body.get("correlation_id"));
+    }
+
+    @Test
     void ciRunIdResolvedFromDoqaEnv() {
         Map<String, String> env = new LinkedHashMap<>();
         env.put("DOQA_CI_RUN_ID", "42");
@@ -243,6 +372,14 @@ class ClientContractTest {
         Map<String, String> env = new LinkedHashMap<>();
         env.put("DOQA_TOKEN", "pa$$w0rd$X");
         assertEquals("pa$$w0rd$X", ConfigResolver.resolve(new Properties(), env, null).token());
+    }
+
+    @Test
+    void unexpandedBranchRefBlocksFurtherEnvFallbacks() {
+        Map<String, String> env = new LinkedHashMap<>();
+        env.put("DOQA_BRANCH", "${DOQA_BRANCH}");
+        env.put("CI_COMMIT_REF_NAME", "release");
+        assertNull(ConfigResolver.resolve(new Properties(), env, null).branch());
     }
 
     @Test

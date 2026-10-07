@@ -255,6 +255,24 @@ class CoreContractTest {
     }
 
     @Test
+    void directResultCarriesTheRunLabelsOfTheFileSink() throws Exception {
+        AdapterRuntime.configure("junit5", "junit-platform");
+        RuntimeContext ctx = new RuntimeContext("uid-properties");
+        ctx.testRef = ref("explicit", "explicit", false);
+        ResultBuilder.Built built = ResultBuilder.build(
+                ctx, "passed", null, null, attachment -> null, null, null);
+
+        Map<String, Object> def = built.def.toPayload();
+        assertEquals(List.of(Map.of("name", "framework", "value", "junit-platform"),
+                        Map.of("name", "language", "value", "java"),
+                        Map.of("name", "package", "value", def.get("namespace")),
+                        Map.of("name", "testClass", "value", def.get("classname")),
+                        Map.of("name", "suite", "value", def.get("classname"))),
+                built.result.toPayload().get("properties"));
+        assertEquals("junit-platform", built.frameworkLabel);
+    }
+
+    @Test
     void allureIdTravelsWithTheDefinition() throws Exception {
         RuntimeContext ctx = new RuntimeContext("uid-allure-id");
         ctx.testRef = ref("allureAnnotated", "n", false);

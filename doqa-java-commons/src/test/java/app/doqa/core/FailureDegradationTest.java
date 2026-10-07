@@ -42,6 +42,7 @@ class FailureDegradationTest {
         volatile int planStatus = 200;
         volatile int createStatus = 200;
         volatile int resultsStatus = 200;
+        volatile String planErrorBody = "{\"error\":{\"message\":\"Invalid token\"}}";
         volatile boolean unreachable;
 
         @Override
@@ -55,7 +56,7 @@ class FailureDegradationTest {
             if (request.url.contains("/test-runs/") && request.url.contains("/autotests")) {
                 return new Response(planStatus, planStatus == 200
                         ? "{\"autotests\":[{\"externalId\":\"SEL-1\"}]}"
-                        : "{\"error\":{\"message\":\"Invalid token\"}}");
+                        : planErrorBody);
             }
             if (request.url.endsWith("/test-runs")) {
                 return new Response(createStatus, createStatus == 200
@@ -109,7 +110,9 @@ class FailureDegradationTest {
 
     private static DoqaConfig.Builder apiConfig(Path dir) {
         return new DoqaConfig.Builder()
-                .url("https://doqa.example").token("T").spaceId("S").resultsDir(dir.toString());
+                .url("https://doqa.example").token("T").spaceId("S").resultsDir(dir.toString())
+                .pipelineId("folder/job/tests#83").ciRunId("77")
+                .sourceKey("java-tests").correlationId("queue-123").branch("feature/ci-context");
     }
 
     private static ResultBuilder.Built built(String externalId) {
@@ -136,6 +139,76 @@ class FailureDegradationTest {
                 StandardCharsets.UTF_8);
     }
 
+    private static java.util.Properties reportingProperties(Path dir) throws IOException {
+        java.util.Properties props = new java.util.Properties();
+        props.load(new java.io.StringReader(reportingInfo(dir)));
+        return props;
+    }
+
+    private static void assertCiContext(String info) throws IOException {
+        java.util.Properties props = new java.util.Properties();
+        props.load(new java.io.StringReader(info));
+        assertEquals("folder/job/tests#83", props.getProperty("pipelineId"));
+        assertEquals("77", props.getProperty("ciRunId"));
+        assertEquals("java-tests", props.getProperty("sourceKey"));
+        assertEquals("queue-123", props.getProperty("correlationId"));
+        assertEquals("feature/ci-context", props.getProperty("branch"));
+        assertNull(props.getProperty("token"), "metadata must not carry a token setting");
+        assertFalse(props.getProperty("reason", "").contains("token=T"),
+                "diagnostics must redact the token");
+    }
+
+    @Test
+    void deliberateFileSessionPreservesCiContextWithoutClaimingTargetRun(@TempDir Path dir)
+            throws IOException {
+        DoqaSession session = session(new FakeTransport(), apiConfig(dir).reporting("files")
+                .testRunId("RUN-9").adapterMode(0));
+        session.report(built("T-1"));
+        session.flush();
+        assertTrue(session.fileSink());
+        assertCiContext(reportingInfo(dir));
+        assertFalse(reportingInfo(dir).contains("runId="));
+    }
+
+    @Test
+    void serverErrorEchoingTheTokenIsRedactedFromMetadata(@TempDir Path dir) throws IOException {
+        FakeTransport t = new FakeTransport();
+        t.planStatus = 401;
+        t.planErrorBody = "{\"error\":{\"message\":\"unauthorized: token=T\"}}";
+
+        DoqaSession session = session(t, apiConfig(dir).adapterMode(0).testRunId("RUN-9"));
+
+        assertTrue(session.fileSink());
+        String reason = reportingProperties(dir).getProperty("reason");
+        assertTrue(reason.contains("token=***"), reason);
+        assertFalse(reason.contains("token=T"), reason);
+    }
+
+    @Test
+    void serverErrorEchoingAJsonEscapedTokenIsRedactedFromMetadata(@TempDir Path dir)
+            throws IOException {
+        // "u" is split from the backslash: javac would process a contiguous escape
+        String[][] cases = {{"T\"Q", "T\\\"Q"}, {"T\"Q", "T\\" + "u0022Q"},
+                {"T\nQ", "T\\nQ"}, {"T\nQ", "T\\" + "u000aQ"}, {"TéQ", "T\\" + "u00e9Q"},
+                {"TéQ", "T\\" + "u00E9Q"}, {"T\\Q", "T\\\\Q"}, {"T\\Q", "T\\" + "u005cQ"},
+                {"S/E", "S\\/E"}, {"T😀Q", "T😀Q"},
+                {"T😀Q", "T\\" + "ud83d" + "\\" + "ude00" + "Q"}};
+        for (String[] c : cases) {
+            FakeTransport t = new FakeTransport();
+            t.planStatus = 401;
+            t.planErrorBody = "{\"error\":{\"message\":\"unauthorized: token=" + c[1] + "\"}}";
+
+            DoqaSession session = session(t, apiConfig(dir).adapterMode(0).testRunId("RUN-9")
+                    .token(c[0]));
+
+            assertTrue(session.fileSink());
+            String reason = reportingProperties(dir).getProperty("reason");
+            assertTrue(reason.contains("token=***"), reason);
+            assertFalse(reason.contains(c[0]), reason);
+            assertFalse(reason.contains(c[1]), reason);
+        }
+    }
+
     @Test
     void rejectedTokenOnTheSelectivePlanDegradesToFilesAndRunsEverything(@TempDir Path dir)
             throws IOException {
@@ -157,8 +230,10 @@ class FailureDegradationTest {
         assertEquals(2, resultFiles(dir).size(), "every result lands on disk");
         assertEquals(0, t.count("\"results\""), "nothing is uploaded with a rejected token");
         String info = reportingInfo(dir);
+        assertCiContext(info);
         assertTrue(info.contains("sink=files"), info);
         assertTrue(info.contains("degradedFrom=api"), info);
+        assertFalse(info.contains("runId="), "a failed plan must not claim an established run");
 
         String warning = warnings().get(0);
         assertTrue(warning.contains("could not establish the test run"), warning);
@@ -179,6 +254,8 @@ class FailureDegradationTest {
         assertTrue(session.enabled);
         assertTrue(session.fileSink());
         assertEquals(1, resultFiles(dir).size());
+        assertCiContext(reportingInfo(dir));
+        assertFalse(reportingInfo(dir).contains("runId="));
         String warning = warnings().get(0);
         assertTrue(warning.contains("422"), warning);
         assertTrue(warning.contains("An active CI binding is required"), warning);
@@ -228,6 +305,7 @@ class FailureDegradationTest {
         assertTrue(file.contains("A-1"), file);
 
         String info = reportingInfo(dir);
+        assertCiContext(info);
         assertTrue(info.contains("sink=api"), info);
         assertTrue(info.contains("runId=RUN-1"), info);
         assertTrue(info.contains("delivered=1"), info);
@@ -247,6 +325,7 @@ class FailureDegradationTest {
 
         assertTrue(resultFiles(dir).isEmpty());
         String info = reportingInfo(dir);
+        assertCiContext(info);
         assertTrue(info.contains("sink=api"), info);
         assertTrue(info.contains("delivered=1"), info);
         assertTrue(info.contains("fallbackResults=0"), info);

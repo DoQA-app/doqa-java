@@ -30,7 +30,7 @@ classpath проекта не добавляет.
 <dependency>
     <groupId>app.doqa</groupId>
     <artifactId>doqa-java-commons</artifactId>
-    <version>0.1.8</version>
+    <version>0.1.9</version>
 </dependency>
 ```
 

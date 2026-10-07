@@ -28,6 +28,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 /**
  * Process-wide lazy singleton holding the resolved config and the active reporting sink:
@@ -215,9 +216,14 @@ public final class DoqaSession {
             writer.writeEnvironment(config.environment());
             Map<String, String> info = new LinkedHashMap<>();
             info.put("sink", "files");
+            putCiContext(info, config);
             if (cause != null) {
                 info.put("degradedFrom", "api");
-                info.put("reason", cause.getMessage());
+                String reason = cause.getMessage();
+                if (reason != null && config.token() != null) {
+                    reason = redactToken(reason, config.token());
+                }
+                info.put("reason", reason);
             }
             writer.writeReportingInfo(info);
             // the shared containers carrying class teardown are written by flush(); some hosts
@@ -229,6 +235,53 @@ public final class DoqaSession {
                     + "', disabling" + (cause != null ? " - the results of this run are LOST" : "")
                     + ": " + e.getMessage(), e);
             return new DoqaSession(false, config, null, null, null, null);
+        }
+    }
+
+    /** Redacts the token literally and in any JSON-escaped spelling. */
+    private static String redactToken(String text, String token) {
+        if (token.isEmpty()) {
+            return text;
+        }
+        StringBuilder re = new StringBuilder();
+        for (int i = 0; i < token.length(); ) {
+            int c = token.codePointAt(i);
+            re.append(charPattern(c));
+            i += Character.charCount(c);
+        }
+        return Pattern.compile(re.toString()).matcher(text).replaceAll("***");
+    }
+
+    // the literal goes last: a raw backslash also starts its escape spellings
+    private static String charPattern(int c) {
+        StringBuilder alt = new StringBuilder("(?:");
+        for (char unit : Character.toChars(c)) {
+            alt.append("\\\\").append('u');
+            String hex = String.format("%04x", (int) unit);
+            for (int i = 0; i < 4; i++) {
+                char d = hex.charAt(i);
+                alt.append(d >= 'a' && d <= 'f' ? "[" + d + (char) (d - 32) + "]" : d);
+            }
+        }
+        String shortForm = jsonShortEscape(c);
+        if (shortForm != null) {
+            alt.append("|").append(Pattern.quote(shortForm));
+        }
+        return alt.append("|").append(Pattern.quote(String.valueOf(Character.toChars(c))))
+                .append(')').toString();
+    }
+
+    private static String jsonShortEscape(int c) {
+        switch (c) {
+            case '"':  return "\\\"";
+            case '\\': return "\\\\";
+            case '/':  return "\\/";
+            case '\n': return "\\n";
+            case '\r': return "\\r";
+            case '\t': return "\\t";
+            case '\b': return "\\b";
+            case '\f': return "\\f";
+            default:   return null;
         }
     }
 
@@ -566,6 +619,7 @@ public final class DoqaSession {
         }
         Map<String, String> info = new LinkedHashMap<>();
         info.put("sink", "api");
+        putCiContext(info, config);
         info.put("runId", runContext.runId());
         info.put("adapterMode", String.valueOf(runContext.mode()));
         info.put("delivered", String.valueOf(delivered.get()));
@@ -576,6 +630,14 @@ public final class DoqaSession {
             LOG.log(Level.WARNING, "DoQA: cannot write " + AllureFileWriter.REPORTING_INFO_FILE
                     + ": " + e.getMessage());
         }
+    }
+
+    private static void putCiContext(Map<String, String> info, DoqaConfig config) {
+        info.put("pipelineId", config.pipelineId());
+        info.put("ciRunId", config.ciRunId());
+        info.put("sourceKey", config.sourceKey());
+        info.put("correlationId", config.correlationId());
+        info.put("branch", config.branch());
     }
 
     /** The active sink's attachment uploader (multipart upload or results-dir copy). */

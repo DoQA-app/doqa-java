@@ -18,7 +18,7 @@ Allure-совместимого формата. На нём работают а�
 <dependency>
     <groupId>app.doqa</groupId>
     <artifactId>doqa-client</artifactId>
-    <version>0.1.8</version>
+    <version>0.1.9</version>
 </dependency>
 ```
 
@@ -47,6 +47,9 @@ Allure-совместимого формата. На нём работают а�
 | `certValidation` | `DOQA_CERT_VALIDATION` | `true` | проверка TLS; `false` отключает и проверку имени хоста |
 | `proxy` | `DOQA_PROXY` | нет | HTTP-прокси, `host:port` |
 | `pipelineId` | `DOQA_PIPELINE_ID` | из переменных CI | id пайплайна CI, который DoQA показывает у прогона |
+| `ciRunId` | `DOQA_CI_RUN_ID` | нет | id запуска CI, который инициировал DoQA; DoQA передаёт его в пайплайн |
+| `sourceKey` | `DOQA_SOURCE_KEY` | нет | CI-подключение пространства, к которому относится пайплайн; DoQA передаёт его в пайплайн |
+| `correlationId` | `DOQA_CORRELATION_ID` | нет | связь с запуском, который DoQA поставил в очередь CI; DoQA передаёт его в пайплайн |
 | `branch` | `DOQA_BRANCH` | из переменных CI | ветка, которую DoQA показывает у прогона |
 | `batchSize` | `DOQA_BATCH_SIZE` | `100` | максимальное число результатов в одном запросе |
 | `requestTimeoutMs` | `DOQA_REQUEST_TIMEOUT_MS` | `30000` | таймаут HTTP-запроса, мс |
@@ -57,7 +60,9 @@ Allure-совместимого формата. На нём работают а�
 | `maxParameterLength` | `DOQA_MAX_PARAMETER_LENGTH` | `2000` | максимальная длина значения параметра, символов |
 
 `pipelineId` и `branch` по умолчанию берутся из переменных CI: `CI_PIPELINE_ID` и
-`CI_COMMIT_REF_NAME` в GitLab, `GITHUB_RUN_ID` и `GITHUB_REF_NAME` в GitHub Actions. Переменные
+`CI_COMMIT_REF_NAME` в GitLab, `GITHUB_RUN_ID` и `GITHUB_REF_NAME` в GitHub Actions. В Jenkins
+`pipelineId` собирается из `JOB_NAME` и `BUILD_NUMBER`: задание `folder/tests` и сборка `83` дают
+`folder/job/tests#83`. В TeamCity это внутренний id сборки `teamcity.build.id`. Переменные
 `DOQA_PIPELINE_ID` и `DOQA_BRANCH` имеют приоритет над ними.
 
 Пустое системное свойство (например, `-Ddoqa.pipelineId=`) сбрасывает значение из переменных
@@ -86,7 +91,7 @@ WARNING с причиной. Если DoQA отклонил пакет резу�
 пишется только этот пакет, остальные адаптер продолжает отправлять через API. В `resultsDir` при
 этом лежит файл `doqa-reporting.properties` с полями `sink=api|files`, `runId`, `delivered`,
 `fallbackResults`. По нему шаг загрузки в пайплайне определяет, остались ли результаты для
-загрузки.
+загрузки, а `doqactl upload` берёт из него CI-контекст, чтобы найти прогон.
 
 ### Режим выбора прогона (`adapterMode`)
 

@@ -22,6 +22,7 @@ public final class AutotestResult implements Model {
     private final List<StepResult> teardownResults = new ArrayList<>();
     private final List<Attachment> attachments = new ArrayList<>();
     private final List<Link> links = new ArrayList<>();
+    private final List<Parameter> properties = new ArrayList<>();
     private boolean createManualCase;
 
     public AutotestResult(String externalId, String outcome) {
@@ -31,6 +32,24 @@ public final class AutotestResult implements Model {
 
     public AutotestResult(String externalId, Outcome outcome) {
         this(externalId, outcome == null ? null : outcome.wire());
+    }
+
+    /** Run labels shared by the file sink and Direct API; blank values are skipped. */
+    public static List<Parameter> runProperties(String frameworkLabel, String namespace, String classname) {
+        List<Parameter> out = new ArrayList<>();
+        String[][] pairs = {
+                {"framework", frameworkLabel},
+                {"language", "java"},
+                {"package", namespace},
+                {"testClass", classname},
+                {"suite", classname},
+        };
+        for (String[] pair : pairs) {
+            if (pair[1] != null && !pair[1].isEmpty()) {
+                out.add(new Parameter(pair[0], pair[1]));
+            }
+        }
+        return out;
     }
 
     public AutotestResult externalId(String v) { this.externalId = v; return this; }
@@ -62,6 +81,7 @@ public final class AutotestResult implements Model {
     }
     public AutotestResult attachments(List<Attachment> v) { if (v != null) attachments.addAll(v); return this; }
     public AutotestResult links(List<Link> v) { if (v != null) links.addAll(v); return this; }
+    public AutotestResult properties(List<Parameter> v) { if (v != null) properties.addAll(v); return this; }
     public AutotestResult createManualCase(boolean v) { this.createManualCase = v; return this; }
 
     public String externalId() { return externalId; }
@@ -85,6 +105,7 @@ public final class AutotestResult implements Model {
         m.put("teardown_results", Payloads.payloads(teardownResults));
         m.put("attachments", Payloads.payloads(attachments));
         m.put("links", Payloads.payloads(links));
+        m.put("properties", Payloads.payloads(properties));
         if (createManualCase) {
             m.put("create_manual_case", true);
         }

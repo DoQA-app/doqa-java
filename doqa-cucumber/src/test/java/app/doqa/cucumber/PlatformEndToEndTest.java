@@ -9,8 +9,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClasspathResource;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectDirectory;
+import static org.junit.platform.engine.discovery.DiscoverySelectors.selectFile;
 
 import app.doqa.cucumber.e2e.BankSuite;
+import app.doqa.cucumber.e2e.SpacedPathRunners;
 import app.doqa.cucumber.e2e.StatusesSuite;
 import app.doqa.cucumber.e2e.steps.Executed;
 import java.util.ArrayList;
@@ -66,6 +68,12 @@ class PlatformEndToEndTest {
         Map<String, Object> result = byName(harness.results(), "Simple transfer");
         assertEquals("passed", result.get("outcome"));
         assertEquals(List.of("passed", "passed", "passed"), outcomes(result.get("step_results")));
+        assertEquals(List.of(Map.of("name", "framework", "value", "cucumber"),
+                        Map.of("name", "language", "value", "java"),
+                        Map.of("name", "package", "value", "features/bank"),
+                        Map.of("name", "testClass", "value", "Money transfer"),
+                        Map.of("name", "suite", "value", "Money transfer")),
+                result.get("properties"));
     }
 
     @Test
@@ -258,6 +266,41 @@ class PlatformEndToEndTest {
         harness.configure(Map.of("doqa.adapterMode", "2"));
         Harness.platform(Map.of(), selectDirectory("src/test/resources/features/bank"));
         assertEquals(viaClasspath, ids(harness.results()));
+    }
+
+    @Test
+    void spacedAndCyrillicDirectoryGivesTheSameKeysViaClasspathAndFile() {
+        String dir = SpacedPathRunners.DIR;
+        Set<Object> expected = new TreeSet<>(List.of(Keys.hash(dir + "/spaced.feature#Transfer from a spaced path"),
+                Keys.hash(dir + "/spaced.feature#Spaced transfer <amount>")));
+
+        Harness.junit4(SpacedPathRunners.Classpath.class);
+        assertEquals(expected, ids(harness.results()), "classpath: runner");
+        assertEquals(dir, byName(harness.defs(), "Transfer from a spaced path").get("namespace"));
+
+        rerun();
+        Harness.junit4(SpacedPathRunners.File.class);
+        assertEquals(expected, ids(harness.results()), "file path runner");
+        assertEquals(dir, byName(harness.defs(), "Transfer from a spaced path").get("namespace"));
+
+        rerun();
+        Harness.platform(Map.of(), selectDirectory("src/test/resources/" + dir));
+        assertEquals(expected, ids(harness.results()), "directory selector");
+
+        rerun();
+        Harness.platform(Map.of(), selectFile("src/test/resources/" + dir + "/spaced.feature"));
+        assertEquals(expected, ids(harness.results()), "file selector");
+
+        if (Harness.platformResolves(selectClasspathResource(dir))) {
+            rerun();
+            Harness.platform(Map.of(), selectClasspathResource(dir));
+            assertEquals(expected, ids(harness.results()), "classpath resource selector");
+        }
+    }
+
+    private void rerun() {
+        harness.recorded.clear();
+        harness.configure(Map.of("doqa.adapterMode", "2"));
     }
 
     @Test

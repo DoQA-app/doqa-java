@@ -103,8 +103,9 @@ public final class ApiClient {
                 configurationId != null ? configurationId : config.configurationId());
         Payloads.putIfPresent(body, "external_key", externalKey);
         // Link the run to its CI pipeline (otherwise DoQA cannot show the pipeline/jobs for a
-        // run started directly from CI): echoes CI_PIPELINE_ID/DOQA_PIPELINE_ID plus the branch.
+        // run started directly from CI): echoes the resolved pipeline id, source key and branch.
         Payloads.putIfPresent(body, "pipeline_id", config.pipelineId());
+        Payloads.putIfPresent(body, "source_key", config.sourceKey());
         Payloads.putIfPresent(body, "branch", config.branch());
         Payloads.putIfPresent(body, "environment", config.environment());
         Transport.Response r = request(Transport.Request.postJson(
@@ -129,6 +130,9 @@ public final class ApiClient {
         if (config.ciRunId() != null) {
             u.append("&ciRunId=").append(enc(config.ciRunId()));
         }
+        appendQuery(u, "pipeline_id", config.pipelineId());
+        appendQuery(u, "source_key", config.sourceKey());
+        appendQuery(u, "correlation_id", config.correlationId());
         Transport.Response r = request(Transport.Request.get(u.toString()));
         List<PlannedAutotest> out = new ArrayList<>();
         Object arr = Json.parseObject(r.body).get("autotests");
@@ -207,11 +211,23 @@ public final class ApiClient {
                 configurationId != null ? configurationId : config.configurationId());
         // CI correlation: without it the backend cannot link results to the pipeline
         // (per-pipeline quality gate and autotest sources would see an empty run).
-        Payloads.putIfPresent(body, "ci_run_id", config.ciRunId());
-        Payloads.putIfPresent(body, "pipeline_id", config.pipelineId());
+        putCiContext(body);
         body.put("results", Payloads.payloads(results));
         Transport.Response r = request(Transport.Request.postJson(url("results"), Json.write(body)));
         return Json.parseObject(r.body);
+    }
+
+    private void putCiContext(Map<String, Object> body) {
+        Payloads.putIfPresent(body, "ci_run_id", config.ciRunId());
+        Payloads.putIfPresent(body, "pipeline_id", config.pipelineId());
+        Payloads.putIfPresent(body, "source_key", config.sourceKey());
+        Payloads.putIfPresent(body, "correlation_id", config.correlationId());
+    }
+
+    private static void appendQuery(StringBuilder url, String key, String value) {
+        if (value != null) {
+            url.append('&').append(key).append('=').append(enc(value));
+        }
     }
 
     // ---- low level ------------------------------------------------------

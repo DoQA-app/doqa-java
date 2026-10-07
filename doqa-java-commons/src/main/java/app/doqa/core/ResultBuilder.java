@@ -182,6 +182,7 @@ public final class ResultBuilder {
                 .teardownResults(teardownResults)
                 .attachments(attachments)
                 .links(new ArrayList<>(links))
+                .properties(AutotestResult.runProperties(ref.frameworkLabel(), namespace, classname))
                 // annotation and runtime opt-in are additive: either one turns the flag on
                 .createManualCase(meta.createManualCase || ctx.createManualCase);
 

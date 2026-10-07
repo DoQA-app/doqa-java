@@ -138,14 +138,41 @@ public final class AllureFileWriter {
             if (e.getValue() == null) {
                 continue;
             }
-            out.append(e.getKey()).append('=')
-                    .append(e.getValue().replace('\r', ' ').replace('\n', ' ')).append('\n');
+            out.append(escapeProperty(e.getKey())).append('=')
+                    .append(escapeProperty(e.getValue())).append('\n');
         }
         try {
             Files.write(dir.resolve(REPORTING_INFO_FILE), out.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new UncheckedIOException("cannot write " + REPORTING_INFO_FILE, e);
         }
+    }
+
+    /** ASCII-only escaping: Latin-1 and UTF-8 readers see the same text. */
+    private static String escapeProperty(String value) {
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            switch (c) {
+                case '\\': out.append("\\\\"); break;
+                case '\t': out.append("\\t"); break;
+                case '\n': out.append("\\n"); break;
+                case '\r': out.append("\\r"); break;
+                case '\f': out.append("\\f"); break;
+                case ' ':
+                case '=':
+                case ':':
+                case '#':
+                case '!': out.append('\\').append(c); break;
+                default:
+                    if (c < 0x20 || c > 0x7e) {
+                        out.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        out.append(c);
+                    }
+            }
+        }
+        return out.toString();
     }
 
     /**
@@ -247,11 +274,10 @@ public final class AllureFileWriter {
         }
         addLabel(labels, LABEL_ALLURE_ID, allureId);
         addLabel(labels, LABEL_CREATE_MANUAL_CASE, resMap.get("create_manual_case"));
-        addLabel(labels, "framework", frameworkLabel);
-        addLabel(labels, "language", "java");
-        addLabel(labels, "package", defMap.get("namespace"));
-        addLabel(labels, "testClass", defMap.get("classname"));
-        addLabel(labels, "suite", defMap.get("classname"));
+        for (Parameter p : AutotestResult.runProperties(frameworkLabel,
+                (String) defMap.get("namespace"), (String) defMap.get("classname"))) {
+            addLabel(labels, p.name(), p.value());
+        }
         for (String key : new String[]{"tags", "labels"}) {
             Object values = defMap.get(key);
             if (values instanceof List) {

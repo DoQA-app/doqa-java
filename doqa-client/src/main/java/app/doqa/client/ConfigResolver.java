@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -28,8 +29,9 @@ import java.util.regex.Pattern;
  *       {@code DOQA_ENVIRONMENT}, {@code DOQA_BATCH_SIZE}) plus aliases
  *       {@code DOQA_PRIVATE_TOKEN} / {@code DOQA_PROJECT_ID}; CI correlation auto-picked from
  *       {@code CI_PIPELINE_ID} / {@code GITHUB_RUN_ID} / {@code CI_COMMIT_REF_NAME} /
- *       {@code GITHUB_REF_NAME}. Empty env values are ignored (CI systems export empty
- *       variables for unset settings).</li>
+ *       {@code GITHUB_REF_NAME}, the Jenkins job path + build number and the TeamCity internal
+ *       build id. Empty env values are ignored (CI systems export empty variables for
+ *       unset settings).</li>
  *   <li><b>system-props</b> (CLI, highest) - {@code -Ddoqa.<field>=...}. An explicitly EMPTY
  *       CLI value clears the field inherited from lower layers
  *       (e.g. {@code -Ddoqa.pipelineId=} drops an auto-picked {@code CI_PIPELINE_ID}).</li>
@@ -39,7 +41,8 @@ import java.util.regex.Pattern;
  * {@code testRunId}, {@code testRunName}, {@code adapterMode} ({@code 0|1|2} or
  * {@code selective|existing|new}), {@code importRealtime}, {@code certValidation}, {@code proxy},
  * {@code reporting} ({@code auto|api|files|off}), {@code resultsDir}, {@code environment},
- * {@code pipelineId}, {@code ciRunId}, {@code branch}, {@code batchSize},
+ * {@code pipelineId}, {@code ciRunId}, {@code sourceKey}, {@code correlationId},
+ * {@code branch}, {@code batchSize},
  * {@code requestTimeoutMs}, {@code retries}, {@code retryBackoffMs}, {@code maxTraceLength},
  * {@code maxMessageLength}, {@code maxParameterLength}.
  */
@@ -74,6 +77,8 @@ public final class ConfigResolver {
     static final String ENVIRONMENT = "environment";
     static final String PIPELINE_ID = "pipelineId";
     static final String CI_RUN_ID = "ciRunId";
+    static final String SOURCE_KEY = "sourceKey";
+    static final String CORRELATION_ID = "correlationId";
     static final String BRANCH = "branch";
     static final String BATCH_SIZE = "batchSize";
     static final String REQUEST_TIMEOUT_MS = "requestTimeoutMs";
@@ -90,7 +95,7 @@ public final class ConfigResolver {
     /** Testable overload: explicit layers (any may be null). */
     public static DoqaConfig resolve(Properties sysProps, Map<String, String> env, Path fileOverride) {
         Map<String, String> file = normalize(loadFile(sysProps, env, fileOverride), false);
-        Map<String, String> envLayer = normalize(collectEnv(env), false);
+        Map<String, String> envLayer = normalize(collectEnv(env, sysProps), false);
         // CLI keeps empty values: an explicit -Ddoqa.<field>= clears the inherited setting.
         Map<String, String> cli = normalize(collectSysProps(sysProps), true);
 
@@ -111,6 +116,8 @@ public final class ConfigResolver {
                 .environment(merged.get(ENVIRONMENT))
                 .pipelineId(merged.get(PIPELINE_ID))
                 .ciRunId(merged.get(CI_RUN_ID))
+                .sourceKey(merged.get(SOURCE_KEY))
+                .correlationId(merged.get(CORRELATION_ID))
                 .branch(merged.get(BRANCH));
         if (notBlank(merged.get(RESULTS_DIR))) {
             b.resultsDir(merged.get(RESULTS_DIR));
@@ -167,10 +174,10 @@ public final class ConfigResolver {
         return out;
     }
 
-    private static Map<String, String> collectEnv(Map<String, String> env) {
+    private static Map<String, String> collectEnv(Map<String, String> env, Properties sysProps) {
         Map<String, String> out = new LinkedHashMap<>();
         if (env == null) {
-            return out;
+            env = Collections.emptyMap();
         }
         putEnv(out, env, "DOQA_URL", URL);
         putEnv(out, env, "DOQA_TOKEN", TOKEN);
@@ -188,13 +195,24 @@ public final class ConfigResolver {
         putEnv(out, env, "DOQA_RESULTS_DIR", RESULTS_DIR);
         putEnv(out, env, "DOQA_ENVIRONMENT", ENVIRONMENT);
         // CI pipeline linkage: an explicit DOQA_PIPELINE_ID wins (putEnv never overwrites);
-        // otherwise auto-picked from the standard CI variables (GitLab / GitHub Actions).
+        // otherwise auto-picked from the standard CI variables.
         putEnv(out, env, "DOQA_PIPELINE_ID", PIPELINE_ID);
         putEnv(out, env, "CI_PIPELINE_ID", PIPELINE_ID);
         putEnv(out, env, "GITHUB_RUN_ID", PIPELINE_ID);
+        if (!out.containsKey(PIPELINE_ID)) {
+            String pipelineId = jenkinsPipelineId(env);
+            if (pipelineId == null) {
+                pipelineId = teamCityBuildId(env, sysProps);
+            }
+            if (pipelineId != null) {
+                out.put(PIPELINE_ID, pipelineId);
+            }
+        }
         // DoQA-initiated launches pass their ci_run id (DOQA_CI_RUN_ID) - echoed back with
         // results so the backend links them to the exact pipeline (gate / sources / multi-pipeline runs).
         putEnv(out, env, "DOQA_CI_RUN_ID", CI_RUN_ID);
+        putEnv(out, env, "DOQA_SOURCE_KEY", SOURCE_KEY);
+        putEnv(out, env, "DOQA_CORRELATION_ID", CORRELATION_ID);
         putEnv(out, env, "DOQA_BRANCH", BRANCH);
         putEnv(out, env, "CI_COMMIT_REF_NAME", BRANCH);
         putEnv(out, env, "GITHUB_REF_NAME", BRANCH);
@@ -206,6 +224,55 @@ public final class ConfigResolver {
         putEnv(out, env, "DOQA_MAX_MESSAGE_LENGTH", MAX_MESSAGE_LENGTH);
         putEnv(out, env, "DOQA_MAX_PARAMETER_LENGTH", MAX_PARAMETER_LENGTH);
         return out;
+    }
+
+    private static String jenkinsPipelineId(Map<String, String> env) {
+        String job = usable(env.get("JOB_NAME"));
+        String number = usable(env.get("BUILD_NUMBER"));
+        if (job == null || number == null || !number.matches("[0-9]+")) {
+            return null;
+        }
+        // the form the CI binding stores: folder/job/tests#83
+        return job.replace("/job/", "/").replace("/", "/job/") + "#" + number;
+    }
+
+    private static String teamCityBuildId(Map<String, String> env, Properties sysProps) {
+        String id = numericId(env.get("TEAMCITY_BUILD_ID"));
+        if (id == null && sysProps != null) {
+            id = numericId(sysProps.getProperty("teamcity.build.id"));
+        }
+        if (id != null) {
+            return id;
+        }
+        String file = usable(env.get("TEAMCITY_BUILD_PROPERTIES_FILE"));
+        if (file == null && sysProps != null) {
+            file = usable(sysProps.getProperty("teamcity.build.properties.file"));
+        }
+        if (file == null) {
+            return null;
+        }
+        Properties props = new Properties();
+        try (InputStream in = Files.newInputStream(Paths.get(file))) {
+            props.load(in);
+        } catch (IOException | IllegalArgumentException e) {
+            LOG.warning("DoQA: TeamCity build properties could not be read - pipelineId remains unset");
+            return null;
+        }
+        id = numericId(props.getProperty("teamcity.build.id"));
+        return id != null ? id : numericId(props.getProperty("build.id"));
+    }
+
+    private static String numericId(String value) {
+        String id = usable(value);
+        return id != null && id.matches("[0-9]+") ? id : null;
+    }
+
+    private static String usable(String value) {
+        if (value == null || value.trim().isEmpty()
+                || UNEXPANDED_REF.matcher(value.trim()).matches()) {
+            return null;
+        }
+        return value.trim();
     }
 
     private static void putEnv(Map<String, String> out, Map<String, String> env, String key, String field) {
@@ -275,6 +342,8 @@ public final class ConfigResolver {
             case "environment": return ENVIRONMENT;
             case "pipelineid": return PIPELINE_ID;
             case "cirunid": return CI_RUN_ID;
+            case "sourcekey": return SOURCE_KEY;
+            case "correlationid": return CORRELATION_ID;
             case "branch": return BRANCH;
             case "batchsize": return BATCH_SIZE;
             case "requesttimeoutms": return REQUEST_TIMEOUT_MS;

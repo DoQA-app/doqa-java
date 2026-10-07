@@ -66,6 +66,8 @@ public final class DoqaConfig {
     // Echo of DOQA_CI_RUN_ID (present when the pipeline was started by DoQA): sent with results
     // so the backend links them to the exact pipeline (quality gate / sources / multi-pipeline runs).
     private final String ciRunId;
+    private final String sourceKey;
+    private final String correlationId;
     private final String branch;
     private final int batchSize;
     private final long requestTimeoutMs;
@@ -94,6 +96,8 @@ public final class DoqaConfig {
         this.environment = blankToNull(b.environment);
         this.pipelineId = blankToNull(b.pipelineId);
         this.ciRunId = blankToNull(b.ciRunId);
+        this.sourceKey = blankToNull(b.sourceKey);
+        this.correlationId = blankToNull(b.correlationId);
         this.branch = blankToNull(b.branch);
         this.batchSize = b.batchSize;
         this.requestTimeoutMs = b.requestTimeoutMs;
@@ -124,6 +128,8 @@ public final class DoqaConfig {
     public String environment() { return environment; }
     public String pipelineId() { return pipelineId; }
     public String ciRunId() { return ciRunId; }
+    public String sourceKey() { return sourceKey; }
+    public String correlationId() { return correlationId; }
     public String branch() { return branch; }
     /** Max results per batched upload POST. */
     public int batchSize() { return batchSize; }
@@ -201,6 +207,8 @@ public final class DoqaConfig {
         private String environment;
         private String pipelineId;
         private String ciRunId;
+        private String sourceKey;
+        private String correlationId;
         private String branch;
         private int batchSize = DEFAULT_BATCH_SIZE;
         private long requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS;
@@ -230,6 +238,8 @@ public final class DoqaConfig {
 
         public Builder pipelineId(String v) { if (v != null) this.pipelineId = v; return this; }
         public Builder ciRunId(String v) { if (v != null) this.ciRunId = v; return this; }
+        public Builder sourceKey(String v) { if (v != null) this.sourceKey = v; return this; }
+        public Builder correlationId(String v) { if (v != null) this.correlationId = v; return this; }
         public Builder branch(String v) { if (v != null) this.branch = v; return this; }
         public Builder batchSize(int v) { if (v > 0) this.batchSize = v; return this; }
         public Builder requestTimeoutMs(long v) { if (v > 0) this.requestTimeoutMs = v; return this; }

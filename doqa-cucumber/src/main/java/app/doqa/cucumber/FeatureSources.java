@@ -1,5 +1,6 @@
 package app.doqa.cucumber;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -53,7 +54,7 @@ final class FeatureSources {
 
     private static String computePath(String uri) {
         if (uri.startsWith(CLASSPATH)) {
-            return stripSlashes(uri.substring(CLASSPATH.length()));
+            return classpathName(uri);
         }
         try {
             URI parsed = URI.create(uri);
@@ -64,6 +65,9 @@ final class FeatureSources {
             int inJar = ssp == null ? -1 : ssp.lastIndexOf("!/");
             if (inJar >= 0) {
                 return stripSlashes(ssp.substring(inJar + 2));
+            }
+            if (parsed.getScheme() == null && parsed.getPath() != null) {
+                return stripSlashes(parsed.getPath());
             }
         } catch (RuntimeException e) {
             LOG.log(Level.FINE, "DoQA cucumber: cannot parse feature uri " + uri, e);
@@ -116,7 +120,7 @@ final class FeatureSources {
     private static String read(String uri) {
         byte[] bytes = null;
         if (uri.startsWith(CLASSPATH)) {
-            URL url = resource(stripSlashes(uri.substring(CLASSPATH.length())));
+            URL url = resource(classpathName(uri));
             bytes = url == null ? null : readBytes(url);
         } else {
             try {
@@ -144,6 +148,41 @@ final class FeatureSources {
             return in.readAllBytes();
         } catch (IOException | RuntimeException e) {
             return null;
+        }
+    }
+
+    private static String classpathName(String uri) {
+        return stripSlashes(decode(uri.substring(CLASSPATH.length())));
+    }
+
+    // the key must not depend on whether the runner reported the path percent-encoded; '+' stays literal as in URIs
+    static String decode(String path) {
+        if (path.indexOf('%') < 0) {
+            return path;
+        }
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream(path.length());
+        StringBuilder out = new StringBuilder(path.length());
+        for (int i = 0; i < path.length(); ) {
+            int hi;
+            int lo;
+            if (path.charAt(i) == '%' && i + 2 < path.length()
+                    && (hi = Character.digit(path.charAt(i + 1), 16)) >= 0
+                    && (lo = Character.digit(path.charAt(i + 2), 16)) >= 0) {
+                bytes.write(hi << 4 | lo);
+                i += 3;
+                continue;
+            }
+            flush(bytes, out);
+            out.append(path.charAt(i++));
+        }
+        flush(bytes, out);
+        return out.toString();
+    }
+
+    private static void flush(ByteArrayOutputStream bytes, StringBuilder out) {
+        if (bytes.size() > 0) {
+            out.append(new String(bytes.toByteArray(), StandardCharsets.UTF_8));
+            bytes.reset();
         }
     }
 

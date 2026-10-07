@@ -174,6 +174,29 @@ class AllureFileWriterTest {
     }
 
     @Test
+    void reportingMetadataRetainsEscapesUnicodeAndNewlinesWithoutAddingEntries() throws IOException {
+        AllureFileWriter writer = new AllureFileWriter(tmp, "junit-platform");
+        String sourceKey = " backend=тест\\suite:# !\t\nciRunId=999\r\f\u0001😀";
+        writer.writeReportingInfo(Map.of("sourceKey", sourceKey, "ciRunId", "42",
+                "pipelineId", "folder/job/tests#17"));
+        String raw = Files.readString(tmp.resolve(AllureFileWriter.REPORTING_INFO_FILE));
+        Properties parsed = new Properties();
+        parsed.load(new java.io.StringReader(raw));
+        assertEquals(sourceKey, parsed.getProperty("sourceKey"));
+        assertEquals("42", parsed.getProperty("ciRunId"));
+        assertEquals("folder/job/tests#17", parsed.getProperty("pipelineId"));
+        assertEquals(3, parsed.size(), "a newline in sourceKey cannot inject a property");
+        Properties fromBytes = new Properties();
+        try (java.io.InputStream in = Files.newInputStream(tmp.resolve(AllureFileWriter.REPORTING_INFO_FILE))) {
+            fromBytes.load(in);
+        }
+        assertEquals(sourceKey, fromBytes.getProperty("sourceKey"));
+        assertTrue(raw.chars().allMatch(c -> c < 128), "standard properties need no charset guessing");
+        assertTrue(raw.contains("backend\\="), raw);
+        assertTrue(raw.contains("\\\\suite"), raw);
+    }
+
+    @Test
     void writesEnvironmentProperties() throws IOException {
         AllureFileWriter writer = new AllureFileWriter(tmp, "junit-platform");
         writer.writeEnvironment("staging");
